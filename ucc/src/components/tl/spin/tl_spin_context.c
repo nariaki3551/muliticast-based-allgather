@@ -53,7 +53,6 @@ static ucc_status_t ucc_tl_spin_init_p2p_context(ucc_tl_spin_context_t *ctx)
             status = UCC_ERR_NOT_FOUND;
             goto free_dev_list;
         }
-        ctx->devname = ctx->cfg.ib_dev_name;
     }
     devname = (char *)ibv_get_device_name(dev);
     ctx->devname = ucc_malloc(strlen(devname)+3, "devname");

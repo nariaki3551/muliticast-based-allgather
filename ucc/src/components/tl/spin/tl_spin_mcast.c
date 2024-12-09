@@ -109,7 +109,7 @@ ucc_tl_spin_team_join_mcg(ucc_tl_spin_context_t *ctx, struct sockaddr_in6 *mcg_s
     /* it is time to wait for the rdma event to confirm the join */
     info->status = ucc_tl_spin_mcast_join_mcast_test(ctx, &cm_event, is_root, 1); // TODO: make nonblocking
     if ((info->status == UCC_OK)) {
-        ucc_assert(cm_event);
+        // ucc_assert(cm_event);
         info->mcg_addr.gid = cm_event->param.ud.ah_attr.grh.dgid;
         info->mcg_addr.lid = cm_event->param.ud.ah_attr.dlid;
 

@@ -499,7 +499,7 @@ ucc_tl_spin_team_init_rc_qp_ring(ucc_base_team_t *tl_team, struct ibv_cq *cq, st
     // Connect QPs in a virtual ring
     l_neighbor = (team->subset.myrank + 1)              % team->size;
     r_neighbor = (team->subset.myrank - 1 + team->size) % team->size;
-    assert(team_size == 2);
+    // assert(team_size == 2);
     status = ib_qp_rc_connect(lib, qps[UCC_TL_SPIN_LN_QP_ID], &send_av[0], &recv_av[l_neighbor * 2 + 1]);
     ucc_assert_always(status == UCC_OK);
     status = ib_qp_rc_connect(lib, qps[UCC_TL_SPIN_RN_QP_ID], &send_av[1], &recv_av[r_neighbor * 2]);

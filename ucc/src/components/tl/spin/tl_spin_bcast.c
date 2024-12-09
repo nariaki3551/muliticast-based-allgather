@@ -542,6 +542,7 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
     size_t                        pkt_len;
     struct ibv_wc                 wcs[2];
     int                           ncomps;
+    ucc_service_coll_req_t        *barrier_req;
     tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), 
             "rx worker %u got bcast task of size: %zu n_batches: %zu last_batch_size: %zu last_pkt_sz: %zu buf: %p, tgid=%u", 
              ctx->id, cur_task->tx_thread_work, cur_task->n_batches, cur_task->last_batch_size, 
@@ -590,6 +591,10 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
             ucc_tl_spin_bitmap_set_bit(&ctx->reliability.bitmap, chunk_id);
             ctx->reliability.recvd_per_rank[rank_id]++;
             ctx->reliability.to_recv--;
+            tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "[Rank=%u] after rx, begin barrier", UCC_TL_TEAM_RANK(ctx->team));
+            ucc_tl_spin_team_service_barrier_post(ctx->team, ctx->team->ctrl_ctx->barrier_scratch, &barrier_req);
+            ucc_tl_spin_team_service_coll_test(barrier_req, 1);
+            tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "[Rank=%u] after rx, end barrier", UCC_TL_TEAM_RANK(ctx->team));
 
 repost_rwr:
             ib_qp_post_recv_wr(ctx->qps[0], &ctx->rwrs[0][*tail_idx]);

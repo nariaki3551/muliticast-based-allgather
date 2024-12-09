@@ -4,6 +4,7 @@
 #include "tl_spin_mcast.h"
 #include "tl_spin_p2p.h"
 #include "components/mc/ucc_mc.h"
+#include <sys/time.h>
 
 static ucc_status_t ucc_tl_spin_allgather_start(ucc_coll_task_t *coll_task)
 {
@@ -145,28 +146,52 @@ ucc_status_t ucc_tl_spin_allgather_init(ucc_tl_spin_task_t   *task,
     return UCC_OK;
 }
 
+void
+get_time_str(char *time_str)
+{
+    struct timeval tv;
+    struct tm *tm_info;
+
+    gettimeofday(&tv, NULL);
+    tm_info = localtime(&tv.tv_sec);
+    strftime(time_str, 100, "%Y-%m-%d %H:%M:%S", tm_info);
+    snprintf(time_str + strlen(time_str), 100 - strlen(time_str), ".%03ld", tv.tv_usec / 1000);
+}
+
 ucc_status_t
 ucc_tl_spin_coll_worker_tx_allgather_start(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_task_t *cur_task)
 {
     ucc_status_t        status;
     int                 compls;
     struct ibv_wc       wc[1];
+    ucc_service_coll_req_t *barrier_req;
 
     if (!cur_task->ag.mcast_seq_starter) {
         compls = ib_cq_poll(ctx->reliability.cq, 1, wc);
         ucc_assert_always(compls == 1 && (wc->opcode == IBV_WC_RECV));
         ib_qp_post_recv(ctx->reliability.qps[UCC_TL_SPIN_RN_QP_ID], NULL, NULL, 0, 0); // re-post
+
+        // get_time_str(time_str);
+        // tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "got mcast signal from left neighbor at %s", time_str);
         tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "got mcast signal from left neighbor");
     }
 
+    // sleep(0.1);
     status = ucc_tl_spin_coll_worker_tx_handler(ctx, cur_task);
     ucc_assert_always(status == UCC_OK);
+    tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "[Rank=%u] after tx, begin barrier", UCC_TL_TEAM_RANK(ctx->team));
+    ucc_tl_spin_team_service_barrier_post(ctx->team, ctx->team->ctrl_ctx->barrier_scratch, &barrier_req);
+    ucc_tl_spin_team_service_coll_test(barrier_req, 1);
+    tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "[Rank=%u] after tx, end barrier", UCC_TL_TEAM_RANK(ctx->team));
 
     if (!cur_task->ag.mcast_seq_finisher) {
         tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "sending mcast signal");
         ib_qp_rc_post_send(ctx->reliability.qps[UCC_TL_SPIN_LN_QP_ID], NULL, NULL, 0, 0, cur_task->id);
         compls = ib_cq_poll(ctx->reliability.cq, 1, wc);
         ucc_assert_always(compls == 1 && (wc->opcode == IBV_WC_SEND));
+
+        // get_time_str(time_str);
+        // tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "sent mcast signal to right neighbor. is finisher: %d at %s", cur_task->ag.mcast_seq_finisher, time_str);
         tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "sent mcast signal to right neighbor. is finisher: %d", cur_task->ag.mcast_seq_finisher);
     }
 

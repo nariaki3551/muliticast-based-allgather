@@ -5,6 +5,13 @@ PREFIX = /usr
 HPCX_PATH = /app/hpcx-v2.22.1-gcc-doca_ofed-ubuntu22.04-cuda12-x86_64
 CUDA_DIR = /usr/local/cuda
 
+.PHONY: all
+
+all:
+	build_ucx
+	build_ucc
+	build_ompi
+
 build_ucx:
 	cd ucx \
         && ./autogen.sh \

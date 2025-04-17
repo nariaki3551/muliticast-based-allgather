@@ -15,24 +15,9 @@ update_submodules_ompi:
 
 build_libevent:
 	@echo "Using apt-installed libevent"
-	# cd ompi/3rd-party && \
-        # tar -xzf libevent-2.1.12-stable-ompi.tar.gz && \
-        # cd libevent-2.1.12-stable-ompi && \
-        # ./configure \
-        #         --prefix=$(PREFIX) && \
-        # make -j && \
-        # make install
 
 build_hwloc:
 	@echo "Using apt-installed hwloc"
-	# cd ompi/3rd-party && \
-        # tar -xzf hwloc-2.7.1.tar.gz && \
-        # cd hwloc-2.7.1 && \
-        # ./configure \
-        #         --prefix=$(PREFIX) && \
-        # make -j && \
-        # make install &&\
-	# ldconfig
 
 build_openpmix: update_submodules_ompi build_libevent build_hwloc
 	cd ompi/3rd-party/openpmix/ && \
@@ -41,9 +26,6 @@ build_openpmix: update_submodules_ompi build_libevent build_hwloc
                 --prefix=$(PREFIX) \
                 --with-libevent \
                 --with-hwloc && \
-                # --with-libevent=$(PREFIX) \
-                # --with-hwloc=$(PREFIX) \
-		# --with-hwloc-libdir=$(PREFIX)/lib && \
         make -j && \
         make install
 
@@ -57,8 +39,6 @@ build_prrte: update_submodules_ompi build_libevent build_hwloc build_openpmix
                 --with-pmix=$(PREFIX) && \
         make -j && \
         make install
-                # --with-libevent=$(PREFIX) \
-                # --with-hwloc=$(PREFIX) \
 
 build_ucx:
 	cd ucx && \
@@ -83,15 +63,13 @@ build_ucc: build_ucx
         make -j && \
         make install
 
-build_ompi: update_submodules_ompi build_libevent build_hwloc build_openpmix build_prrte build_ucx build_ucc
+build_ompi: build_libevent build_hwloc build_openpmix build_prrte build_ucx build_ucc
 	cd ompi && \
         ./autogen.pl && \
         ./configure \
                 --prefix=$(PREFIX) \
                 --with-libevent \
                 --with-hwloc \
-                # --with-libevent=$(PREFIX) \
-                # --with-hwloc=$(PREFIX) \
                 --with-pmix=$(PREFIX) \
                 --with-prrte=$(PREFIX) \
                 --with-ucx=$(PREFIX) \

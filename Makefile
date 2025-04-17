@@ -28,7 +28,8 @@ build_openpmix: update_submodules_ompi build_libevent build_hwloc
         ./configure \
                 --prefix=$(PREFIX) \
                 --with-libevent \
-                --with-hwloc && \
+                --with-hwloc \
+                --enable-devel-headers && \
         make -j && \
         make install
 

@@ -9,7 +9,10 @@ CUDA_FLAGS = -I$(CUDA_DIR)/include -L$(CUDA_DIR)/lib64 -lcudart
 
 all: build_ompi
 
-update_submodules_ompi:
+update_submodules_non_recursive:
+        git submodule update --init
+
+update_submodules_ompi: update_submodules_non_recursive
 	cd ompi && \
         git submodule update --init --recursive
 
@@ -40,8 +43,9 @@ build_prrte: update_submodules_ompi build_libevent build_hwloc build_openpmix
         make -j && \
         make install
 
-build_ucx:
+build_ucx: update_submodules
 	cd ucx && \
+        git submodule update --init --recursive && \
         ./autogen.sh && \
         ./contrib/configure-release \
                 --prefix=$(PREFIX) \
@@ -50,8 +54,9 @@ build_ucx:
         make -j && \
         make install
 
-build_ucc: build_ucx
+build_ucc: update_submodules build_ucx
 	cd ucc && \
+        git submodule update --init --recursive && \
         ./autogen.sh && \
         ./configure \
                 --prefix=$(PREFIX) \
@@ -63,7 +68,7 @@ build_ucc: build_ucx
         make -j && \
         make install
 
-build_ompi: build_libevent build_hwloc build_openpmix build_prrte build_ucx build_ucc
+build_ompi: update_submodules_non_recursive build_libevent build_hwloc build_openpmix build_prrte build_ucx build_ucc
 	cd ompi && \
         ./autogen.pl && \
         ./configure \

@@ -52,8 +52,10 @@ build_prrte: update_submodules_ompi build_libevent build_hwloc build_openpmix
         ./autogen.pl && \
         ./configure \
                 --prefix=$(PREFIX) \
-                --with-libevent=$(PREFIX) \
-                --with-hwloc=$(PREFIX) \
+                --with-libevent \
+                --with-hwloc \
+                # --with-libevent=$(PREFIX) \
+                # --with-hwloc=$(PREFIX) \
                 --with-pmix=$(PREFIX) && \
         make -j && \
         make install
@@ -86,8 +88,10 @@ build_ompi: update_submodules_ompi build_libevent build_hwloc build_openpmix bui
         ./autogen.pl && \
         ./configure \
                 --prefix=$(PREFIX) \
-                --with-libevent=$(PREFIX) \
-                --with-hwloc=$(PREFIX) \
+                --with-libevent \
+                --with-hwloc \
+                # --with-libevent=$(PREFIX) \
+                # --with-hwloc=$(PREFIX) \
                 --with-pmix=$(PREFIX) \
                 --with-prrte=$(PREFIX) \
                 --with-ucx=$(PREFIX) \

@@ -1,5 +1,3 @@
-CXX = mpicxx
-CXXFLAGS = -g -O0
 CUDA_DIR ?= /usr/local/cuda
 PREFIX ?= /usr/local
 HPCX_DIR ?= /opt/hpcx-v2.22.1-gcc-doca_ofed-ubuntu22.04-cuda12-x86_64
@@ -36,6 +34,7 @@ build_openpmix: update_submodules_ompi
 build_prrte: update_submodules_ompi build_openpmix
 	cd ompi/3rd-party/prrte/ && \
         ./autogen.pl && \
+        CPPFLAGS="-I$(PREFIX)/include/pmix" \
         ./configure \
                 --prefix=$(PREFIX) \
                 --with-libevent \

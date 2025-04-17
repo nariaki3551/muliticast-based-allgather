@@ -43,7 +43,7 @@ build_prrte: update_submodules_ompi build_libevent build_hwloc build_openpmix
         make -j && \
         make install
 
-build_ucx: update_submodules
+build_ucx: update_submodules_non_recursive
 	cd ucx && \
 	git submodule update --init --recursive && \
         ./autogen.sh && \
@@ -54,7 +54,7 @@ build_ucx: update_submodules
         make -j && \
         make install
 
-build_ucc: update_submodules build_ucx
+build_ucc: update_submodules_non_recursive build_ucx
 	cd ucc && \
 	git submodule update --init --recursive && \
         ./autogen.sh && \
@@ -70,6 +70,7 @@ build_ucc: update_submodules build_ucx
 
 build_ompi: update_submodules_non_recursive build_libevent build_hwloc build_openpmix build_prrte build_ucx build_ucc
 	cd ompi && \
+	git submodule update --init --recursive && \
         ./autogen.pl && \
         ./configure \
                 --prefix=$(PREFIX) \

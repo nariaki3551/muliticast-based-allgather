@@ -29,7 +29,8 @@ build_hwloc: update_submodules_ompi
         ./configure \
                 --prefix=$(PREFIX) && \
         make -j && \
-        make install
+        make install &&\
+	ldconfig
 
 build_openpmix: update_submodules_ompi build_libevent build_hwloc
 	cd ompi/3rd-party/openpmix/ && \

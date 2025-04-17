@@ -14,23 +14,25 @@ update_submodules_ompi:
         git submodule update --init --recursive
 
 build_libevent:
-	cd ompi/3rd-party && \
-        tar -xzf libevent-2.1.12-stable-ompi.tar.gz && \
-        cd libevent-2.1.12-stable-ompi && \
-        ./configure \
-                --prefix=$(PREFIX) && \
-        make -j && \
-        make install
+	@echo "Using apt-installed libevent"
+	# cd ompi/3rd-party && \
+        # tar -xzf libevent-2.1.12-stable-ompi.tar.gz && \
+        # cd libevent-2.1.12-stable-ompi && \
+        # ./configure \
+        #         --prefix=$(PREFIX) && \
+        # make -j && \
+        # make install
 
 build_hwloc:
-	cd ompi/3rd-party && \
-        tar -xzf hwloc-2.7.1.tar.gz && \
-        cd hwloc-2.7.1 && \
-        ./configure \
-                --prefix=$(PREFIX) && \
-        make -j && \
-        make install &&\
-	ldconfig
+	@echo "Using apt-installed hwloc"
+	# cd ompi/3rd-party && \
+        # tar -xzf hwloc-2.7.1.tar.gz && \
+        # cd hwloc-2.7.1 && \
+        # ./configure \
+        #         --prefix=$(PREFIX) && \
+        # make -j && \
+        # make install &&\
+	# ldconfig
 
 build_openpmix: update_submodules_ompi build_libevent build_hwloc
 	cd ompi/3rd-party/openpmix/ && \

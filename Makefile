@@ -13,7 +13,7 @@ update_submodules_ompi:
 	cd ompi && \
         git submodule update --init --recursive
 
-build_libevent: update_submodules_ompi
+build_libevent:
 	cd ompi/3rd-party && \
         tar -xzf libevent-2.1.12-stable-ompi.tar.gz && \
         cd libevent-2.1.12-stable-ompi && \
@@ -22,7 +22,7 @@ build_libevent: update_submodules_ompi
         make -j && \
         make install
 
-build_hwloc: update_submodules_ompi
+build_hwloc:
 	cd ompi/3rd-party && \
         tar -xzf hwloc-2.7.1.tar.gz && \
         cd hwloc-2.7.1 && \

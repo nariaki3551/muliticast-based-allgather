@@ -22,16 +22,17 @@ build_libevent:
 build_hwloc:
 	@echo "Using apt-installed hwloc"
 
-build_openpmix: update_submodules_ompi build_libevent build_hwloc
-	cd ompi/3rd-party/openpmix/ && \
-        ./autogen.pl && \
-        ./configure \
-                --prefix=$(PREFIX) \
-                --with-libevent \
-                --with-hwloc \
-                --enable-devel-headers && \
-        make -j && \
-        make install
+build_openpmix:
+	@echo "Using apt-installed hwloc"
+	# cd ompi/3rd-party/openpmix/ && \
+        # ./autogen.pl && \
+        # ./configure \
+        #         --prefix=$(PREFIX) \
+        #         --with-libevent \
+        #         --with-hwloc \
+        #         --enable-devel-headers && \
+        # make -j && \
+        # make install
 
 build_prrte: update_submodules_ompi build_libevent build_hwloc build_openpmix
 	cd ompi/3rd-party/prrte/ && \
@@ -40,7 +41,7 @@ build_prrte: update_submodules_ompi build_libevent build_hwloc build_openpmix
                 --prefix=$(PREFIX) \
                 --with-libevent \
                 --with-hwloc \
-                --with-pmix=$(PREFIX) && \
+                --with-pmix && \
         make -j && \
         make install
 

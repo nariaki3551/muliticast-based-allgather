@@ -40,7 +40,7 @@ build_prrte: update_submodules_ompi
                 --prefix=$(PREFIX) \
                 --with-libevent \
                 --with-hwloc \
-                --with-pmix=$(PREFIX) && \
+                --with-pmix && \
         make -j && \
         make install
 
@@ -77,7 +77,7 @@ build_ompi: update_submodules_non_recursive build_libevent build_hwloc build_ope
                 --prefix=$(PREFIX) \
                 --with-libevent \
                 --with-hwloc \
-                --with-pmix=$(PREFIX) \
+                --with-pmix= \
                 --with-prrte=$(PREFIX) \
                 --with-ucx=$(PREFIX) \
                 --with-ucc=$(PREFIX) \

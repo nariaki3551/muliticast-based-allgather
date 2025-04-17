@@ -72,11 +72,12 @@ build_ompi: update_submodules_non_recursive build_libevent build_hwloc build_ope
 	cd ompi && \
 	git submodule update --init --recursive && \
         ./autogen.pl && \
+        CPPFLAGS="-I$(PREFIX)/include/pmix" \
         ./configure \
                 --prefix=$(PREFIX) \
                 --with-libevent \
                 --with-hwloc \
-                --with-pmix= \
+                --with-pmix=$(PREFIX) \
                 --with-prrte=$(PREFIX) \
                 --with-ucx=$(PREFIX) \
                 --with-ucc=$(PREFIX) \

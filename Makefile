@@ -54,11 +54,11 @@ build_prrte: update_submodules_ompi build_libevent build_hwloc build_openpmix
                 --prefix=$(PREFIX) \
                 --with-libevent \
                 --with-hwloc \
-                # --with-libevent=$(PREFIX) \
-                # --with-hwloc=$(PREFIX) \
                 --with-pmix=$(PREFIX) && \
         make -j && \
         make install
+                # --with-libevent=$(PREFIX) \
+                # --with-hwloc=$(PREFIX) \
 
 build_ucx:
 	cd ucx && \

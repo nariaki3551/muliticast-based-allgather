@@ -34,7 +34,7 @@ build_hwloc:
 
 build_openpmix: update_submodules_ompi build_libevent build_hwloc
 	cd ompi/3rd-party/openpmix/ && \
-        ./autogen.pl && \]
+        ./autogen.pl && \
         CPPFLAGS="-I$(PREFIX)/include" \
         LDFLAGS="-L$(PREFIX)/lib" \
         ./configure \

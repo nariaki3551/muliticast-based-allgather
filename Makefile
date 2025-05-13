@@ -1,108 +1,94 @@
-CUDA_DIR ?= /usr/local/cuda
+CUDA_HOME ?=
+NVCC_GENCODE ?=
+HPCX_HOME ?=
 PREFIX ?= /usr/local
-HPCX_DIR ?= /opt/hpcx-v2.22.1-gcc-doca_ofed-ubuntu22.04-cuda12-x86_64
-NVCC_GENCODE ?= -gencode=arch=compute_70,code=sm_70
-CUDA_FLAGS = -I$(CUDA_DIR)/include -L$(CUDA_DIR)/lib64 -lcudart
-export LD_LIBRARY_PATH := $(PREFIX)/lib:$(LD_LIBRARY_PATH)
+CUDA_FLAGS = -I$(CUDA_HOME)/include -L$(CUDA_HOME)/lib64 -lcudart
 
 .PHONY: all
 
 all: build_ompi
 
-init_ucx:
-	git submodule update --init ucx && \
-        cd ucx
-	# git checkout v1.18.0
+update_submodules_non_recursive:
+	git submodule update --init
 
-init_ompi:
-	git submodule update --init ompi && \
-        cd ompi
-	# git checkout v5.0.7
-
-update_submodules_ucx: init_ucx
-	cd ucx && \
-        git submodule update --init --recursive
-
-update_submodules_ompi: init_ompi
+update_submodules_ompi: update_submodules_non_recursive
 	cd ompi && \
         git submodule update --init --recursive
 
-build_libevent: init_ompi
-	cd ompi/3rd-party && \
-	tar -xf libevent-2.1.12-stable.tar.gz && \
-	cd libevent-2.1.12-stable && \
-	./configure --prefix=$(PREFIX) && \
-	make -j && \
-	make install
+build_libevent:
+	@echo "Using apt-installed libevent"
 
-build_hwloc: init_ompi
-	cd ompi/3rd-party && \
-	tar -xf hwloc-2.7.1.tar.gz && \
-	cd hwloc-2.7.1 && \
-	./configure --prefix=$(PREFIX) && \
-	make -j && \
-	make install
+build_hwloc:
+	@echo "Using apt-installed hwloc"
 
-build_openpmix: update_submodules_ompi build_libevent build_hwloc
+build_openpmix: update_submodules_ompi
 	cd ompi/3rd-party/openpmix/ && \
         ./autogen.pl && \
         ./configure \
                 --prefix=$(PREFIX) \
-                --with-libevent=$(PREFIX) \
-                --with-hwloc=$(PREFIX) \
+                --with-libevent \
+                --with-hwloc \
                 --enable-devel-headers && \
         make -j && \
         make install
 
-build_prrte: update_submodules_ompi build_libevent build_hwloc build_openpmix
+build_prrte: update_submodules_ompi build_openpmix
 	cd ompi/3rd-party/prrte/ && \
         ./autogen.pl && \
         CPPFLAGS="-I$(PREFIX)/include/pmix" \
         ./configure \
                 --prefix=$(PREFIX) \
-                --with-libevent=$(PREFIX) \
-                --with-hwloc=$(PREFIX) \
+                --with-libevent \
+                --with-hwloc \
                 --with-pmix=$(PREFIX) && \
         make -j && \
         make install
 
-build_ucx: update_submodules_ucx
+build_ucx: update_submodules_non_recursive
 	cd ucx && \
+	git submodule update --init --recursive && \
         ./autogen.sh && \
         ./contrib/configure-release \
                 --prefix=$(PREFIX) \
-                --with-cuda=$(CUDA_DIR) \
+                --with-cuda=$(CUDA_HOME) \
                 --enable-mt && \
         make -j && \
         make install
 
-build_ucc: build_ucx
+# ucc configure flags
+CONFIGURE_FLAGS := --prefix=$(PREFIX) --with-ucx=$(PREFIX) --with-tls=all
+ifneq ($(CUDA_HOME),)
+CONFIGURE_FLAGS += --with-cuda=$(CUDA_HOME)
+endif
+ifneq ($(NVCC_GENCODE),)
+CONFIGURE_FLAGS += --with-nvcc-gencode=$(NVCC_GENCODE)
+endif
+ifneq ($(HPCX_HOME),)
+CONFIGURE_FLAGS += --with-sharp=$(HPCX_HOME)/sharp
+endif
+build_ucc: update_submodules_non_recursive build_ucx
 	cd ucc && \
+	git submodule update --init --recursive && \
 	./autogen.sh && \
-        ./configure \
-                --prefix=$(PREFIX) \
-                --with-ucx=$(PREFIX) \
-                --with-tls=all \
-                --with-cuda=$(CUDA_DIR) \
-                --with-nvcc-gencode=$(NVCC_GENCODE) \
-                --with-sharp=$(HPCX_DIR)/sharp && \
-        make -j && \
-        make install
+	./configure $(CONFIGURE_FLAGS) && \
+	make -j && \
+	make install
 
-build_ompi: update_submodules_ompi build_libevent build_hwloc build_openpmix build_prrte build_ucx build_ucc
+build_ompi: update_submodules_non_recursive build_libevent build_hwloc build_openpmix build_prrte build_ucx build_ucc
 	cd ompi && \
+	git submodule update --init --recursive && \
         ./autogen.pl && \
         CPPFLAGS="-I$(PREFIX)/include/pmix" \
         ./configure \
                 --prefix=$(PREFIX) \
-                --with-libevent=$(PREFIX) \
-                --with-hwloc=$(PREFIX) \
+                --with-libevent \
+                --with-hwloc \
                 --with-pmix=$(PREFIX) \
                 --with-prrte=$(PREFIX) \
                 --with-ucx=$(PREFIX) \
                 --with-ucc=$(PREFIX) \
-                --with-cuda=$(CUDA_DIR) \
-                --with-cuda-libdir=$(CUDA_DIR)/lib64/stubs \
+                --with-cuda=$(CUDA_HOME) \
+                --with-cuda-libdir=$(CUDA_HOME)/lib64/stubs \
                 $(DEBUG_FLAGS) && \
         make -j && \
         make install

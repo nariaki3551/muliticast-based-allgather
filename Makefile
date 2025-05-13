@@ -1,7 +1,8 @@
-CUDA_DIR ?= /usr/local/cuda
+CUDA_HOME ?=
+NVCC_GENCODE ?=
+HPCX_HOME ?=
 PREFIX ?= /usr/local
-HPCX_DIR ?= /opt/hpcx-v2.22.1-gcc-doca_ofed-ubuntu22.04-cuda12-x86_64
-CUDA_FLAGS = -I$(CUDA_DIR)/include -L$(CUDA_DIR)/lib64 -lcudart
+CUDA_FLAGS = -I$(CUDA_HOME)/include -L$(CUDA_HOME)/lib64 -lcudart
 
 .PHONY: all
 
@@ -49,24 +50,29 @@ build_ucx: update_submodules_non_recursive
         ./autogen.sh && \
         ./contrib/configure-release \
                 --prefix=$(PREFIX) \
-                --with-cuda=$(CUDA_DIR) \
+                --with-cuda=$(CUDA_HOME) \
                 --enable-mt && \
         make -j && \
         make install
 
+# ucc configure flags
+CONFIGURE_FLAGS := --prefix=$(PREFIX) --with-ucx=$(PREFIX) --with-tls=all
+ifneq ($(CUDA_HOME),)
+CONFIGURE_FLAGS += --with-cuda=$(CUDA_HOME)
+endif
+ifneq ($(NVCC_GENCODE),)
+CONFIGURE_FLAGS += --with-nvcc-gencode=$(NVCC_GENCODE)
+endif
+ifneq ($(HPCX_HOME),)
+CONFIGURE_FLAGS += --with-sharp=$(HPCX_HOME)/sharp
+endif
 build_ucc: update_submodules_non_recursive build_ucx
 	cd ucc && \
 	git submodule update --init --recursive && \
-        ./autogen.sh && \
-        ./configure \
-                --prefix=$(PREFIX) \
-                --with-ucx=$(PREFIX) \
-                --with-tls=all \
-                --with-cuda=$(CUDA_DIR) \
-                --with-nvcc-gencode="-gencode=arch=compute_70,code=sm_70" \
-                --with-sharp=$(HPCX_DIR)/sharp && \
-        make -j && \
-        make install
+	./autogen.sh && \
+	./configure $(CONFIGURE_FLAGS) && \
+	make -j && \
+	make install
 
 build_ompi: update_submodules_non_recursive build_libevent build_hwloc build_openpmix build_prrte build_ucx build_ucc
 	cd ompi && \
@@ -81,8 +87,8 @@ build_ompi: update_submodules_non_recursive build_libevent build_hwloc build_ope
                 --with-prrte=$(PREFIX) \
                 --with-ucx=$(PREFIX) \
                 --with-ucc=$(PREFIX) \
-                --with-cuda=$(CUDA_DIR) \
-                --with-cuda-libdir=$(CUDA_DIR)/lib64/stubs \
+                --with-cuda=$(CUDA_HOME) \
+                --with-cuda-libdir=$(CUDA_HOME)/lib64/stubs \
                 $(DEBUG_FLAGS) && \
         make -j && \
         make install

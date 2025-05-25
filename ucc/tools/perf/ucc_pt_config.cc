@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * See file LICENSE for terms.
  */
@@ -29,6 +29,7 @@ ucc_pt_config::ucc_pt_config() {
     bench.n_bufs         = UCC_PT_DEFAULT_N_BUFS;
     bench.root           = 0;
     bench.root_shift     = 0;
+    bench.mult_factor    = 2;
     comm.mt              = bench.mt;
 }
 
@@ -90,7 +91,7 @@ ucc_status_t ucc_pt_config::process_args(int argc, char *argv[])
     int c;
     ucc_status_t st;
 
-    while ((c = getopt(argc, argv, "c:b:e:d:m:n:w:o:N:r:S:iphFT")) != -1) {
+    while ((c = getopt(argc, argv, "c:b:e:d:f:m:n:w:o:N:r:S:iphFT")) != -1) {
         switch (c) {
             case 'c':
                 if (ucc_pt_op_map.count(optarg) == 0) {
@@ -153,6 +154,9 @@ ucc_status_t ucc_pt_config::process_args(int argc, char *argv[])
                 std::stringstream(optarg) >> bench.n_warmup_small;
                 bench.n_warmup_large = bench.n_warmup_small;
                 break;
+            case 'f':
+                std::stringstream(optarg) >> bench.mult_factor;
+                break;
             case 'N':
                 std::stringstream(optarg) >> bench.n_bufs;
                 break;
@@ -191,6 +195,7 @@ void ucc_pt_config::print_help()
     std::cout << "  -m <mtype name>: memory type"<<std::endl;
     std::cout << "  -n <number>: number of iterations"<<std::endl;
     std::cout << "  -w <number>: number of warmup iterations"<<std::endl;
+    std::cout << "  -f <number>: multiplication factor between sizes. Default : 2."<<std::endl;
     std::cout << "  -N <number>: number of buffers"<<std::endl;
     std::cout << "  -T: triggered collective"<<std::endl;
     std::cout << "  -F: enable full print"<<std::endl;

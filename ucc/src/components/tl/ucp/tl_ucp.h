@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * See file LICENSE for terms.
  */
@@ -48,13 +48,18 @@ typedef struct ucc_tl_ucp_lib_config {
     uint32_t                 fanin_kn_radix;
     uint32_t                 fanout_kn_radix;
     uint32_t                 barrier_kn_radix;
+    size_t                   allreduce_sliding_window_buf_size;
+    uint32_t                 allreduce_sliding_window_put_window_size;
+    uint32_t                 allreduce_sliding_window_num_get_bufs;
     ucc_mrange_uint_t        allreduce_kn_radix;
     ucc_mrange_uint_t        allreduce_sra_kn_radix;
     uint32_t                 reduce_scatter_kn_radix;
-    uint32_t                 allgather_kn_radix;
+    ucc_mrange_uint_t        allgather_kn_radix;
     uint32_t                 bcast_kn_radix;
     ucc_mrange_uint_t        bcast_sag_kn_radix;
     uint32_t                 reduce_kn_radix;
+    ucc_pipeline_params_t    reduce_srg_kn_pipeline;
+    ucc_mrange_uint_t        reduce_srg_kn_radix;
     uint32_t                 gather_kn_radix;
     uint32_t                 gatherv_linear_num_posts;
     uint32_t                 scatter_kn_radix;
@@ -76,14 +81,24 @@ typedef struct ucc_tl_ucp_lib_config {
     int                      use_reordering;
 } ucc_tl_ucp_lib_config_t;
 
+typedef enum ucc_tl_ucp_local_copy_type {
+    UCC_TL_UCP_LOCAL_COPY_TYPE_UCP,
+    UCC_TL_UCP_LOCAL_COPY_TYPE_MC,
+    UCC_TL_UCP_LOCAL_COPY_TYPE_EC,
+    UCC_TL_UCP_LOCAL_COPY_TYPE_AUTO,
+    UCC_TL_UCP_LOCAL_COPY_TYPE_LAST
+} ucc_tl_ucp_local_copy_type_t;
+
 typedef struct ucc_tl_ucp_context_config {
-    ucc_tl_context_config_t super;
-    uint32_t                preconnect;
-    uint32_t                n_polls;
-    uint32_t                oob_npolls;
-    uint32_t                pre_reg_mem;
-    uint32_t                service_worker;
-    uint32_t                service_throttling_thresh;
+    ucc_tl_context_config_t      super;
+    uint32_t                     preconnect;
+    uint32_t                     n_polls;
+    uint32_t                     oob_npolls;
+    uint32_t                     pre_reg_mem;
+    uint32_t                     service_worker;
+    uint32_t                     service_throttling_thresh;
+    ucc_tl_ucp_local_copy_type_t local_copy_type;
+    int                          memtype_copy_enable;
 } ucc_tl_ucp_context_config_t;
 
 typedef ucc_tl_ucp_lib_config_t ucc_tl_ucp_team_config_t;
@@ -113,23 +128,21 @@ typedef struct ucc_tl_ucp_worker {
     ucp_ep_h *        eps;
 } ucc_tl_ucp_worker_t;
 
-typedef struct ucc_tl_ucp_context {
-    ucc_tl_context_t            super;
-    ucc_tl_ucp_context_config_t cfg;
-    ucc_tl_ucp_worker_t         worker;
-    ucc_tl_ucp_worker_t         service_worker;
-    uint32_t                    service_worker_throttling_count;
-    ucc_mpool_t                 req_mp;
-    ucc_tl_ucp_remote_info_t *  remote_info;
-    ucp_rkey_h *                rkeys;
-    uint64_t                    n_rinfo_segs;
-    uint64_t                    ucp_memory_types;
-    int                         topo_required;
-} ucc_tl_ucp_context_t;
-UCC_CLASS_DECLARE(ucc_tl_ucp_context_t, const ucc_base_context_params_t *,
-                  const ucc_base_config_t *);
-
 typedef struct ucc_tl_ucp_task ucc_tl_ucp_task_t;
+typedef struct ucc_tl_ucp_context ucc_tl_ucp_context_t;
+typedef union ucc_tl_ucp_copy_task ucc_tl_ucp_copy_task_t;
+
+typedef ucc_status_t (*ucc_tl_ucp_copy_post_fn_t)(void *dst,
+                                                  ucc_memory_type_t dst_mtype,
+                                                  void *src,
+                                                  ucc_memory_type_t src_mtype,
+                                                  size_t size,
+                                                  ucc_tl_ucp_task_t *coll_task,
+                                                  ucc_tl_ucp_copy_task_t **copy_task);
+typedef ucc_status_t (*ucc_tl_ucp_copy_test_fn_t)(ucc_tl_ucp_context_t *ctx,
+                                                  ucc_tl_ucp_copy_task_t *copy_task);
+typedef ucc_status_t (*ucc_tl_ucp_copy_finalize_fn_t)(ucc_tl_ucp_copy_task_t *copy_task);
+
 typedef struct ucc_tl_ucp_team {
     ucc_tl_team_t              super;
     ucc_status_t               status;
@@ -142,11 +155,63 @@ typedef struct ucc_tl_ucp_team {
     const char *               tuning_str;
     ucc_topo_t                *topo;
     ucc_ep_map_t               ctx_map;
-    ucc_rank_t                 opt_radix;
+    ucc_rank_t                 opt_radix; /* generic opt radix */
+    ucc_rank_t                 opt_radix_host; /* host specific opt radix */
 } ucc_tl_ucp_team_t;
 UCC_CLASS_DECLARE(ucc_tl_ucp_team_t, ucc_base_context_t *,
                   const ucc_base_team_params_t *);
 
+typedef ucc_status_t (*ucc_tl_ucp_send_nb_fn_t)(void *buffer, size_t msglen,
+                                                ucc_memory_type_t mtype,
+                                                ucc_rank_t dest_group_rank,
+                                                ucc_tl_ucp_team_t *team,
+                                                ucc_tl_ucp_task_t *task);
+
+typedef ucc_status_t (*ucc_tl_ucp_recv_nb_fn_t)(void *buffer, size_t msglen,
+                                                ucc_memory_type_t mtype,
+                                                ucc_rank_t dest_group_rank,
+                                                ucc_tl_ucp_team_t *team,
+                                                ucc_tl_ucp_task_t *task);
+
+typedef ucc_status_t (*ucc_tl_ucp_recv_nz_fn_t)(void *buffer, size_t msglen,
+                                                ucc_memory_type_t mtype,
+                                                ucc_rank_t dest_group_rank,
+                                                ucc_tl_ucp_team_t *team,
+                                                ucc_tl_ucp_task_t *task);
+
+typedef ucc_status_t (*ucc_tl_ucp_send_nz_fn_t)(void *buffer, size_t msglen,
+                                                ucc_memory_type_t mtype,
+                                                ucc_rank_t dest_group_rank,
+                                                ucc_tl_ucp_team_t *team,
+                                                ucc_tl_ucp_task_t *task);
+
+typedef struct ucc_tl_ucp_context {
+    ucc_tl_context_t            super;
+    ucc_tl_ucp_context_config_t cfg;
+    ucc_tl_ucp_worker_t         worker;
+    ucc_tl_ucp_worker_t         service_worker;
+    struct {
+        ucc_tl_ucp_send_nb_fn_t ucc_tl_ucp_send_nb;
+        ucc_tl_ucp_recv_nb_fn_t ucc_tl_ucp_recv_nb;
+        ucc_tl_ucp_send_nz_fn_t ucc_tl_ucp_send_nz;
+        ucc_tl_ucp_recv_nz_fn_t ucc_tl_ucp_recv_nz;
+    } sendrecv_cbs;
+    uint32_t                    service_worker_throttling_count;
+    ucc_mpool_t                 req_mp;
+    ucc_tl_ucp_remote_info_t *  remote_info;
+    ucp_rkey_h *                rkeys;
+    uint64_t                    n_rinfo_segs;
+    uint64_t                    ucp_memory_types;
+    int                         topo_required;
+    struct {
+        ucc_tl_ucp_copy_post_fn_t     post;
+        ucc_tl_ucp_copy_test_fn_t     test;
+        ucc_tl_ucp_copy_finalize_fn_t finalize;
+    } copy;
+} ucc_tl_ucp_context_t;
+UCC_CLASS_DECLARE(ucc_tl_ucp_context_t, const ucc_base_context_params_t *,
+                    const ucc_base_config_t *);
+  
 extern ucc_config_field_t ucc_tl_ucp_lib_config_table[];
 
 #define UCC_TL_UCP_SUPPORTED_COLLS                                             \
@@ -172,11 +237,8 @@ extern ucc_config_field_t ucc_tl_ucp_lib_config_table[];
 #define UCC_TL_UCP_TEAM_CTX(_team)                                             \
     (ucc_derived_of((_team)->super.super.context, ucc_tl_ucp_context_t))
 
-#define IS_SERVICE_TEAM(_team)                                                 \
-    ((_team)->super.super.params.scope == UCC_CL_LAST + 1)
-
 #define USE_SERVICE_WORKER(_team)                                              \
-    (IS_SERVICE_TEAM(_team) && UCC_TL_UCP_TEAM_CTX(_team)->cfg.service_worker)
+    (UCC_TL_IS_SERVICE_TEAM(_team) && UCC_TL_UCP_TEAM_CTX(_team)->cfg.service_worker)
 
 #define UCC_TL_UCP_TASK_TEAM(_task)                                            \
     (ucc_derived_of((_task)->super.team, ucc_tl_ucp_team_t))

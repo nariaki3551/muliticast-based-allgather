@@ -109,9 +109,8 @@ ucc_tl_mlx5_mcast_mem_register(ucc_tl_mlx5_mcast_coll_context_t *ctx,
     return UCC_OK;
 }
 
-ucc_status_t
-ucc_tl_mlx5_mcast_mem_deregister(ucc_tl_mlx5_mcast_coll_context_t *ctx,
-                                 ucc_tl_mlx5_mcast_reg_t *reg)
+void ucc_tl_mlx5_mcast_mem_deregister(ucc_tl_mlx5_mcast_coll_context_t *ctx,
+                                      ucc_tl_mlx5_mcast_reg_t *reg)
 {
     ucc_tl_mlx5_mcast_rcache_region_t *region;
     ucc_rcache_t                      *rcache;
@@ -119,21 +118,22 @@ ucc_tl_mlx5_mcast_mem_deregister(ucc_tl_mlx5_mcast_coll_context_t *ctx,
     rcache = ctx->rcache;
 
     if (reg == NULL) {
-        return UCC_OK;
+        return;
     }
 
     ucc_assert(rcache != NULL);
     tl_trace(ctx->lib, "memory deregister mr %p", reg->mr);
     region = ucc_container_of(reg, ucc_tl_mlx5_mcast_rcache_region_t, reg);
     ucc_rcache_region_put(rcache, &region->super);
-
-    return UCC_OK;
 }
 
 static ucc_rcache_ops_t ucc_tl_mlx5_rcache_ops = {
     .mem_reg     = ucc_tl_mlx5_mcast_rcache_mem_reg_cb,
     .mem_dereg   = ucc_tl_mlx5_mcast_rcache_mem_dereg_cb,
-    .dump_region = ucc_tl_mlx5_mcast_rcache_dump_region_cb
+    .dump_region = ucc_tl_mlx5_mcast_rcache_dump_region_cb,
+#ifdef UCS_HAVE_RCACHE_MERGE_CB
+    .merge       = ucc_rcache_merge_cb_empty
+#endif
 };
 
 ucc_status_t ucc_tl_mlx5_mcast_setup_rcache(ucc_tl_mlx5_mcast_coll_context_t *ctx)

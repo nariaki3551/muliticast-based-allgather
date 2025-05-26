@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * See file LICENSE for terms.
  */
@@ -30,35 +30,23 @@
         obj;                                                                    \
     })
 
-#define GET_NACK_REQ(_comm, _pkt_id)                                            \
-    ({                                                                          \
-        void* item;                                                             \
-        ucc_tl_mlx5_mcast_nack_req_t *_req;                                     \
-        item = ucc_mpool_get(&(_comm)->ctx->nack_reqs_mp);                      \
-                                                                                \
-        _req         = (ucc_tl_mlx5_mcast_nack_req_t *)item;                    \
-        _req->comm   = _comm;                                                   \
-        _req->pkt_id = _pkt_id;                                                 \
-        _req;                                                                   \
-    })
-
-int ucc_tl_mlx5_mcast_prepare_reliable(ucc_tl_mlx5_mcast_coll_comm_t *comm,
-                                       ucc_tl_mlx5_mcast_coll_req_t *req,
-                                       ucc_rank_t root);
+ucc_status_t ucc_tl_mlx5_mcast_prepare_reliable(ucc_tl_mlx5_mcast_coll_comm_t *comm,
+                                                ucc_tl_mlx5_mcast_coll_req_t *req,
+                                                ucc_rank_t root);
 
 ucc_status_t ucc_tl_mlx5_mcast_bcast_check_drop(ucc_tl_mlx5_mcast_coll_comm_t *comm,
                                                 ucc_tl_mlx5_mcast_coll_req_t *req);
 
 ucc_status_t ucc_tl_mlx5_mcast_process_packet(ucc_tl_mlx5_mcast_coll_comm_t *comm,
-                                      ucc_tl_mlx5_mcast_coll_req_t *req,
-                                      struct pp_packet* pp);
+                                              ucc_tl_mlx5_mcast_coll_req_t *req,
+                                              struct pp_packet* pp);
 
 ucc_status_t ucc_tl_mlx5_mcast_check_nack_requests(ucc_tl_mlx5_mcast_coll_comm_t *comm,
-                                          uint32_t psn);
+                                                   uint32_t psn);
 
 ucc_status_t ucc_tl_mlx5_mcast_reliable_send(ucc_tl_mlx5_mcast_coll_comm_t* comm);
 
-ucc_status_t ucc_tl_mlx5_mcast_check_nack_requests_all(ucc_tl_mlx5_mcast_coll_comm_t* comm);
+ucc_status_t ucc_tl_mlx5_mcast_check_nack_requests(ucc_tl_mlx5_mcast_coll_comm_t* comm, uint32_t psn);
 
 #endif /* ifndef TL_MLX5_MCAST_PROGRESS_H_ */
 

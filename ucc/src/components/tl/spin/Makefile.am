@@ -41,7 +41,7 @@ sources =               \
 
 module_LTLIBRARIES = libucc_tl_spin.la
 libucc_tl_spin_la_SOURCES  = $(sources)
-libucc_tl_spin_la_CPPFLAGS = $(AM_CPPFLAGS) $(BASE_CPPFLAGS)
+libucc_tl_spin_la_CPPFLAGS = $(AM_CPPFLAGS) $(BASE_CPPFLAGS) -I$(top_srcdir)/src/components/tl/mlx5
 libucc_tl_spin_la_CFLAGS   = $(BASE_CFLAGS)
 libucc_tl_spin_la_LDFLAGS  = -version-info $(SOVERSION) --as-needed
 libucc_tl_spin_la_LIBADD   = $(UCC_TOP_BUILDDIR)/src/libucc.la $(IBVERBS_LIBADD) $(RDMACM_LIBADD)

@@ -3,6 +3,7 @@
 #include "tl_spin_mcast.h"
 #include "tl_spin_p2p.h"
 #include "tl_spin_bitmap.h"
+#include "components/mc/ucc_mc.h"
 
 static ucc_status_t ucc_tl_spin_bcast_start(ucc_coll_task_t *coll_task)
 {
@@ -97,6 +98,8 @@ ucc_status_t ucc_tl_spin_bcast_init(ucc_tl_spin_task_t   *task,
 
     task->src_ptr          = coll_args->args.src.info.buffer;
     task->dst_ptr          = coll_args->args.src.info.buffer;
+    task->src_mem_type     = coll_args->args.src.info.mem_type;
+    task->dst_mem_type     = coll_args->args.dst.info.mem_type;
     task->src_buf_size     = task->dst_buf_size = count * dt_size;
     ucc_assert_always(task->src_buf_size <= ctx->cfg.max_recv_buf_size);
 
@@ -584,9 +587,13 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
                 ucc_assert_always(rank_id == 0);
             }
             rank_buf_offset = chunk_id % cur_task->pkts_to_send;
-            memcpy(buf + cur_task->src_buf_size * rank_id + mtu * rank_buf_offset, 
-                   rbuf + mtu * (*tail_idx),
-                   pkt_len);
+            ucc_status_t status;
+            status = ucc_mc_memcpy(PTR_OFFSET(buf, cur_task->src_buf_size * rank_id + mtu * rank_buf_offset),
+                                   PTR_OFFSET(rbuf, mtu * (*tail_idx)),
+                                   pkt_len,
+                                   cur_task->src_mem_type,
+                                   cur_task->dst_mem_type);
+            ucc_assert_always(status == UCC_OK);
             ucc_tl_spin_bitmap_set_bit(&ctx->reliability.bitmap, chunk_id);
             ctx->reliability.recvd_per_rank[rank_id]++;
             ctx->reliability.to_recv--;

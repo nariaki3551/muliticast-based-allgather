@@ -109,6 +109,8 @@ ucc_status_t ucc_tl_spin_allgather_init(ucc_tl_spin_task_t   *task,
     } else {
         task->src_ptr = task->dst_ptr + UCC_TL_TEAM_RANK(team) * task->src_buf_size;
     }
+    task->src_mem_type = coll_args->args.src.info.mem_type;
+    task->dst_mem_type = coll_args->args.dst.info.mem_type;
 
     ucc_tl_spin_bcast_init_task_tx_info(task, ctx);
     task->pkts_to_send = task->tx_thread_work / ctx->mcast.mtu;

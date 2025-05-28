@@ -273,6 +273,8 @@ typedef struct ucc_tl_spin_task {
     double                       timeout;
     void                        *src_ptr;
     void                        *dst_ptr;
+    ucc_memory_type_t            src_mem_type;
+    ucc_memory_type_t            dst_mem_type;
     ucc_tl_spin_rcache_region_t *cached_sbuf_mkey;
     ucc_tl_spin_rcache_region_t *cached_rbuf_mkey;
 #ifdef UCC_TL_SPIN_PROFILE_TASK

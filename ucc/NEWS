@@ -6,6 +6,148 @@
 
 ## Current
 
+## 1.4.0 (TBD)
+
+## New Features and Enhancements
+
+### Core
+- Implemented asymmetric memory support {PR #1000}
+- Enhanced error handling and resource cleanup {PR #960, #951}
+- Improved service team handling {PR #1046}
+- Fixed triggered post for zero size collectives {PR #960}
+
+### CL/HIER
+- Added allgatherv support {PR #1111}
+- Implemented node subgroup unpacking {PR #1103}
+- Added reduce to supported collectives {PR #997}
+- Fixed integer overflow in alltoall {PR #944}
+
+### TL/UCP
+- Split single and multithreaded send/receive operations {PR #1109}
+- Added knomial allgather with CUDA memory support {PR #1095}
+- Implemented reduce SRG knomial algorithm {PR #1058}
+- Added radix selection to knomial operations {PR #1072}
+- Added sliding window allreduce implementation {PR #958}
+- Added knomial allgatherv support {PR #1008}
+- Added sparbit algorithm for allgather {PR #940}
+- Extended broadcast active set support for size > 2 {PR #926}
+- Added knomial algorithm for reduce-scatter {PR #970}
+
+### TL/MLX5
+- Added multicast-based zero-copy broadcast {PR #1087}
+- Implemented mcast multi-group support {PR #1060}
+- Added non-blocking CUDA memory copy support {PR #1040}
+- Added device memory multicast broadcast {PR #989}
+- Enhanced mcast allgather staging-based algorithm {PR #994}
+- Improved one-sided mcast reliability initialization {PR #980}
+- Various performance optimizations in alltoall {PR #1067}
+- Fixed fences in all-to-all WQEs {PR #1069}
+- Added context option to disable all-to-all operations {PR #1062}
+- Improved error handling and device checks {PR #1102}
+- Disabled mcast for thread multiple mode {PR #961}
+
+### TL/SHARP
+- Added support for allgather operation {PR #1081}
+- Enabled reduce-scatter with SAT support {PR #1084}
+- Added SHARP multi-channel support {PR #1049}
+- Fixed service team OOB handling {PR #1001}
+- Improved internal OOB usage {PR #986}
+
+### CUDA
+- Added linear broadcast implementation {PR #948}
+- Batch CUDA stream memory operations, reduced CPU and GPU execution overhead {PR #1093}
+- Enhanced error handling for CUDA context operations {PR #1025}
+- Fixed context cleanup in CUDA operations {PR #954}
+
+### Build and Test
+- Added support for specific GPU architectures with ROCM {PR #987}
+- Added UCC pkg-config support {PR #1036}
+- Fixed build compatibility with NVC compiler {PR #1052}
+- Enhanced config parser functionality {PR #1092}
+- Enhanced ASAN/LSAN memory leak detection {PR #1074}
+- Added error checking and exit handling in gtests {PR #1083}
+
+### Documentation
+- Updated README with UCC publication information {PR #1028}
+- Added DOCA_UROM documentation {PR #999}
+- Fixed Doxygen documentation issues {PR #1038}
+- Enhanced code style consistency {PR #1020}
+
+### CL/DOCA_UROM
+- Implemented new DOCA UROM plugin {PR #978}
+- Added support for offloading collective operations to DPUs
+- Implemented allreduce collective
+
+## 1.3.0 (April 18th, 2024)
+
+## New Features and Enhancements
+
+### CL/HIER
+- Disable onesided alltoallv {PR #875}
+
+### TL/CUDA
+- Initialize remote CUDA scratch to NULL {PR #911}
+
+
+### TL/UCP
+- Enable hybrid alltoallv {PR #781}
+- Avoid copy in knomial scatter {PR #771}
+- Enable reorder ranks to reduce_scatter, Knomial Allreduce, Ring Allgather/v {PR #819}
+- Remove memcpy in last SRA step {PR #743}
+- Fix sparse pack in hybrid a2av {PR #825}
+- Fix recycle in hybrid a2av {PR #827}
+- Reorder ranks for SRA {PR #834}
+- Use ring allgather when reordering needed {PR #879}
+- Use pipelining in SRA allreduce for CUDA {PR #873}
+- Poll for onesided alltoall completion {PR #876}
+- Add support for non-host buffers in bruck alltoall {PR #852}
+- Added Neighbor Exchange Allgather{PR #822}
+
+### TL/SHARP
+- Enable bcast for any predefined dt {PR #774}
+- Don't print team create error {PR #777}
+- Check datasize supported {PR #776}
+- Fix sharp context cleanup {PR #843}
+
+### API
+- Remove duplicate get_version_string {PR #933}
+
+### TL/NCCL
+- Make team init non-blocking {PR #772}
+- Add CUDA managed to score {PR #793}
+- Make ncclGroupEnd nb {PR #798}
+- Lazy init nccl comm {PR #851}
+
+### TL/MLX5
+- Share ib_ctx and pd {PR #749}
+- Rcache {PR #753}
+- Device memory and topo init {PR #780}
+- Adding mcast interface {PR #784}
+- A2A part 1 -- coll init {PR #790}
+- A2A part 2 -- full collective {PR #802}
+- Revisit team and ctx init {PR #815}
+- Fix context create hang {PR #887}
+- Add librdmacm linkage {PR #910}
+
+### CORE
+- Fix score update when only score given {PR #779}
+- Coverity fixes {PR #809}
+- Additional coverty fixes {PR #813}
+- Fix error handling for ctx create epilog {PR #818}
+- Skip zero size collectives {PR #787}
+
+### DOCS
+- Updating NEWS for v1.2 {PR #791}
+- Updating NEWS for v1.3 {PR #937}
+
+### BUILD and TEST
+- Updated build system to enable UCC with ROCm 6.x {PR #906 and #917}
+- Check op and dt compatibility {PR #773}
+- Fix barrier test {PR #799}
+- Propagate HIP_CXXFLAGS to gtest and mpi {PR #803}
+
+
+
 ## 1.2.0 (June 6th, 2023)
 
 ## New Features and Enhancements
@@ -139,7 +281,7 @@
 - Added support for multithreaded context progress
 - Added support for nonblocking team destroy
 
-#### CL 
+#### CL
 
 - Added support for hierarchical collectives
 - Added support for hierarchical allreduce collective operation
@@ -151,12 +293,12 @@
 
 ##### UCP
 
-- Added Bcast SAG algorithm for large messages 
-- Added Knomial based reduce algorithm 
+- Added Bcast SAG algorithm for large messages
+- Added Knomial based reduce algorithm
 - Making allgather and alltoall agree with the API
 - Added SRA knomial allreduce algorithm
 - Added pairwise alltoall and alltoallv algorithms
-- Added allgather and allgatherv ring algorithms 
+- Added allgather and allgatherv ring algorithms
 - Added support for collective operations based on one-sided semantics
 - Added support for alltoall with one-sided transfer semantics
 - Bug fixes
@@ -169,7 +311,7 @@
   scatter, bcast, allgather and allgatherv
 
 #### Tests
-- Updated tests to test the newly added algorithms and operations 
+- Updated tests to test the newly added algorithms and operations
 
 
 ## 0.1.0 (TBD)
@@ -188,12 +330,12 @@
 - Added support for configuring UCC library and contexts
 
 
-#### CL 
+#### CL
 
 - Added support for collectives, while the source and destination is either in
-  CPU or device (GPU) 
+  CPU or device (GPU)
 - Added support for UCC_THREAD_MULTIPLE
-- Added support for CUDA stream-based collectives 
+- Added support for CUDA stream-based collectives
 
 
 #### TL

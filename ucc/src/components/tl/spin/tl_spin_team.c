@@ -707,7 +707,7 @@ ucc_status_t ucc_tl_spin_team_get_scores(ucc_base_team_t *tl_team,
     ucc_tl_spin_team_t *team  = ucc_derived_of(tl_team, ucc_tl_spin_team_t);
     ucc_base_context_t *ctx   = UCC_TL_TEAM_CTX(team);
     ucc_base_lib_t     *lib   = UCC_TL_TEAM_LIB(team);
-    ucc_memory_type_t   mt[1] = {UCC_MEMORY_TYPE_HOST};
+    ucc_memory_type_t   mt[2] = {UCC_MEMORY_TYPE_HOST, UCC_MEMORY_TYPE_CUDA};
     ucc_coll_score_t          *score;
     ucc_status_t               status;
     ucc_coll_score_team_info_t team_info;
@@ -715,7 +715,7 @@ ucc_status_t ucc_tl_spin_team_get_scores(ucc_base_team_t *tl_team,
     team_info.alg_fn              = NULL;
     team_info.default_score       = UCC_TL_SPIN_DEFAULT_SCORE;
     team_info.init                = ucc_tl_spin_coll_init;
-    team_info.num_mem_types       = 1;
+    team_info.num_mem_types       = 2;
     team_info.supported_mem_types = mt;
     team_info.supported_colls     = UCC_TL_SPIN_SUPPORTED_COLLS;
     team_info.size                = UCC_TL_TEAM_SIZE(team);

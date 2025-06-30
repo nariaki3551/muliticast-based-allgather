@@ -326,9 +326,9 @@ UCC_CLASS_INIT_FUNC(ucc_tl_spin_team_t, ucc_base_context_t *tl_context,
 
     tl_info(tl_context->lib, "posted tl team: %p, n threads: %d", self, n_workers);
 
-cleanup:
-    ucc_topo_cleanup(topo);
-    ucc_ep_map_destroy_nested(&self->subset.map);
+// cleanup:
+//     ucc_topo_cleanup(topo);
+//     ucc_ep_map_destroy_nested(&self->subset.map);
 ret:
     return status;
 }

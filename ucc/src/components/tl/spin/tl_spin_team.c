@@ -136,12 +136,12 @@ UCC_CLASS_INIT_FUNC(ucc_tl_spin_team_t, ucc_base_context_t *tl_context,
         return status;
     }
 
-    if (ucc_topo_max_ppn(topo) > 1) {
-        tl_debug(tl_context->lib, "spin team not supported with ppn > 1, min ppn = %zu, max ppn = %zu, team size = %zu", 
-                 (size_t)ucc_topo_max_ppn(topo), (size_t)ucc_topo_max_ppn(topo), (size_t)self->size);
-        status = UCC_ERR_NOT_SUPPORTED;
-        goto cleanup;
-    }
+    // if (ucc_topo_max_ppn(topo) > 1) {
+    //     tl_debug(tl_context->lib, "spin team not supported with ppn > 1, min ppn = %zu, max ppn = %zu, team size = %zu", 
+    //              (size_t)ucc_topo_max_ppn(topo), (size_t)ucc_topo_max_ppn(topo), (size_t)self->size);
+    //     status = UCC_ERR_NOT_SUPPORTED;
+    //     goto cleanup;
+    // }
 
     UCC_TL_SPIN_CHK_PTR(tl_context->lib,
                         ucc_calloc(n_workers + 1, sizeof(ucc_tl_spin_worker_info_t)),

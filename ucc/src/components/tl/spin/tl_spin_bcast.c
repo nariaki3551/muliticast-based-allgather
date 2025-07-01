@@ -532,14 +532,14 @@ inline ucc_status_t
 ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_task_t *cur_task)
 {
 #ifndef UCC_TL_SPIN_DISABLE_MCAST
-    void                         *rbuf                = ctx->staging_rbuf[0];
+    // void                         *rbuf                = ctx->staging_rbuf[0];
     size_t                       *tail_idx            = &ctx->tail_idx[0];
     void                         *buf                 = cur_task->dst_ptr + ctx->id * cur_task->tx_thread_work;
     size_t                        mtu                 = ctx->ctx->mcast.mtu;
     double                        timeout             = cur_task->timeout;
     uint32_t                      chunk_id            = 0;
     size_t                        rank_id             = 0;
-    size_t                        rank_buf_offset;
+    // size_t                        rank_buf_offset;
     ucc_tl_spin_packed_chunk_id_t packed_chunk_id;
     double                        t_start, t_end;
     size_t                        pkt_len;
@@ -586,14 +586,14 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
             if (cur_task->coll_type == UCC_TL_SPIN_WORKER_TASK_TYPE_BCAST) {
                 ucc_assert_always(rank_id == 0);
             }
-            rank_buf_offset = chunk_id % cur_task->pkts_to_send;
-            ucc_status_t status;
-            status = ucc_mc_memcpy(PTR_OFFSET(buf, cur_task->src_buf_size * rank_id + mtu * rank_buf_offset),
-                                   PTR_OFFSET(rbuf, mtu * (*tail_idx)),
-                                   pkt_len,
-                                   cur_task->src_mem_type,
-                                   cur_task->dst_mem_type);
-            ucc_assert_always(status == UCC_OK);
+            // rank_buf_offset = chunk_id % cur_task->pkts_to_send;
+            // ucc_status_t status;
+            // status = ucc_mc_memcpy(PTR_OFFSET(buf, cur_task->src_buf_size * rank_id + mtu * rank_buf_offset),
+            //                        PTR_OFFSET(rbuf, mtu * (*tail_idx)),
+            //                        pkt_len,
+            //                        cur_task->src_mem_type,
+            //                        cur_task->dst_mem_type);
+            // ucc_assert_always(status == UCC_OK);
             ucc_tl_spin_bitmap_set_bit(&ctx->reliability.bitmap, chunk_id);
             ctx->reliability.recvd_per_rank[rank_id]++;
             ctx->reliability.to_recv--;

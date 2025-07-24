@@ -52,6 +52,7 @@ typedef struct ucc_tl_spin_context_config {
     int                     timeout_scaling_param;
     int                     n_ag_mcast_roots;
     unsigned int            max_recv_buf_size;
+    int                     mcast_zero_copy_bcast_enable;
 } ucc_tl_spin_context_config_t;
 
 typedef struct ucc_tl_spin_lib {
@@ -252,6 +253,7 @@ typedef struct ucc_tl_spin_task {
     atomic_int                   tx_start;
     atomic_int                   tx_compls;
     atomic_int                   rx_compls;
+    atomic_int                   rx_ready_compls;
     ucc_tl_spin_task_type_t      coll_type;
     uint32_t                     id;
     size_t                       src_buf_size;

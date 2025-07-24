@@ -600,8 +600,10 @@ static ucc_status_t ucc_tl_spin_team_init_mcast_qps(ucc_base_team_t *tl_team)
                 ucc_assert(worker->type == UCC_TL_SPIN_WORKER_TYPE_RX);
                 status = ucc_tl_spin_team_setup_mcast_qp(ctx, worker, &team->mcg_infos[mcg_id], 0, j);
                 ucc_assert(status == UCC_OK);
-                status = ucc_tl_spin_team_prepost_mcast_qp(ctx, worker, j);
-                ucc_assert(status == UCC_OK);
+                if (!ctx->cfg.mcast_zero_copy_bcast_enable) {
+                    status = ucc_tl_spin_team_prepost_mcast_qp(ctx, worker, j);
+                    ucc_assert(status == UCC_OK);
+                }
             }
             tl_debug(lib, "worker %d qp %d %p attached to cq %p", i, j, worker->qps[j], worker->cq);
             mcg_id = (mcg_id + 1) % ctx->cfg.n_mcg;

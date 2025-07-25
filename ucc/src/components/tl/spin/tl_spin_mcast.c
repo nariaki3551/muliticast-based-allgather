@@ -273,12 +273,13 @@ ucc_tl_spin_team_prepost_mcast_qp_zero_copy(ucc_tl_spin_context_t *ctx,
                                             size_t pkts_to_send,
                                             int qp_id)
 {
-    struct ibv_qp *qp       = worker->qps[qp_id];
-    int            i;
+    struct ibv_qp *qp = worker->qps[qp_id];
+    int            i  = 0, j;
 
     for (int src_rank = 0; src_rank < team_size; src_rank++) {
-        for (i = 0; i < pkts_to_send; i++) {
+        for (j = 0; j < pkts_to_send; j++, i++) {
             ib_qp_post_recv_wr(qp, &worker->rwrs[qp_id][i]);
+            tl_warn(UCC_TL_SPIN_CTX_LIB(ctx), "post recv wr %d, payload buf=%p", i, (void*)(worker->rwrs[qp_id][i].sg_list[1].addr));
         }
     }
 
@@ -330,7 +331,7 @@ ucc_tl_spin_prepare_mcg_rwrs_zero_copy(struct ibv_recv_wr *wrs, struct ibv_sge *
     
     for (int src_rank = 0; src_rank < team_size; src_rank++) {
         remaining_len = src_buf_size;
-        for (k = 0, j = 0; k < pkts_to_send; k++, i++, j += 2) {
+        for (k = 0; k < pkts_to_send; k++, i++, j += 2) {
             if (k == pkts_to_send - 1) {
                 assert(remaining_len <= mtu);
                 len = remaining_len;

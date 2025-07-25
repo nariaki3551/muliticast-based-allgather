@@ -111,10 +111,14 @@ ucc_status_t ucc_tl_spin_allgather_init(ucc_tl_spin_task_t   *task,
     if (task->last_pkt_size) {
         task->pkts_to_send++;
     }
-    task->pkts_to_recv     = task->pkts_to_send * (UCC_TL_TEAM_SIZE(team) - 1);
     task->start_chunk_id   = task->pkts_to_send * UCC_TL_TEAM_RANK(team);
     task->inplace_start_id = task->start_chunk_id;
     task->inplace_end_id   = task->inplace_start_id + task->pkts_to_send - 1;
+    if (ctx->cfg.mcast_zero_copy_bcast_enable) {
+        task->pkts_to_recv = task->pkts_to_send * UCC_TL_TEAM_SIZE(team);
+    } else {
+        task->pkts_to_recv = task->pkts_to_send * (UCC_TL_TEAM_SIZE(team) - 1);
+    }
 
     task->ag.mcast_seq_starter  = UCC_TL_TEAM_RANK(team)       % seq_length == 0 ? 1 : 0;
     task->ag.mcast_seq_finisher = (UCC_TL_TEAM_RANK(team) + 1) % seq_length == 0 ? 1 : 0;
@@ -186,6 +190,7 @@ ucc_tl_spin_coll_worker_rx_allgather_start(ucc_tl_spin_worker_info_t *ctx, ucc_t
     ucc_status_t status;
 
     if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
+        ucc_assert_always(ctx->ctx->cfg.n_mcg == 1);
         ucc_assert_always(ctx->ctx->cfg.n_tx_workers == 1 && ctx->ctx->cfg.n_rx_workers == 1);
         ucc_assert_always(cur_task->pkts_to_send * UCC_TL_TEAM_SIZE(ctx->team) <= ctx->ctx->cfg.mcast_rq_depth);
 

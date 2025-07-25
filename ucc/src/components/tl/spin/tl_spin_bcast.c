@@ -549,6 +549,7 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
             "rx worker %u got bcast task of size: %zu n_batches: %zu last_batch_size: %zu last_pkt_sz: %zu buf: %p, tgid=%u", 
              ctx->id, cur_task->tx_thread_work, cur_task->n_batches, cur_task->last_batch_size, 
              cur_task->last_pkt_size, buf, cur_task->id);
+    tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "rx worker %u zero copy bcast: %d", ctx->id, ctx->ctx->cfg.mcast_zero_copy_bcast_enable);
 #endif
     ctx->reliability.to_recv = cur_task->pkts_to_recv;
 #ifndef UCC_TL_SPIN_DISABLE_MCAST
@@ -575,12 +576,13 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
                      ctx->id, pkt_len, chunk_id, *tail_idx);
 
             // ignore loopback traffic in cast of allgather
-            if ((cur_task->inplace_start_id <= chunk_id) && (chunk_id <= cur_task->inplace_end_id)) {
-                    tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "got loopback chunk id");
-                goto repost_rwr;
-            }
-
             if (!ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
+                // ignore loopback traffic in cast of allgather
+                if ((cur_task->inplace_start_id <= chunk_id) && (chunk_id <= cur_task->inplace_end_id)) {
+                        tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "got loopback chunk id");
+                    goto repost_rwr;
+                }
+
                 // ready to copy
                 rank_id = chunk_id / cur_task->pkts_to_send;
                 ucc_assert_always(rank_id < UCC_TL_TEAM_SIZE(ctx->team));
@@ -595,20 +597,21 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
                                        cur_task->src_mem_type,
                                        cur_task->dst_mem_type);
                 ucc_assert_always(status == UCC_OK);
-                ucc_tl_spin_bitmap_set_bit(&ctx->reliability.bitmap, chunk_id);
-                ctx->reliability.recvd_per_rank[rank_id]++;
-                ctx->reliability.to_recv--;
             }
+
+            ucc_tl_spin_bitmap_set_bit(&ctx->reliability.bitmap, chunk_id);
+            ctx->reliability.recvd_per_rank[rank_id]++;
+            ctx->reliability.to_recv--;
 
 repost_rwr:
             if (!ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
                 ib_qp_post_recv_wr(ctx->qps[0], &ctx->rwrs[0][*tail_idx]);
                 *tail_idx = (*tail_idx + 1) % ctx->ctx->cfg.mcast_rq_depth;
                 ucc_assert_always(mtu * (*tail_idx) <= ctx->staging_rbuf_len);
+                tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team),
+                         "rx worker %u stored chunk of size: %zu, id: %u",
+                         ctx->id, pkt_len, chunk_id);
             }
-            tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team),
-                     "rx worker %u stored chunk of size: %zu, id: %u",
-                     ctx->id, pkt_len, chunk_id);
         }
         t_end = ucc_get_time();
         ucc_assert_always(t_start <= t_end);

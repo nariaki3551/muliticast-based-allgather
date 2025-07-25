@@ -26,9 +26,28 @@ ucc_tl_spin_prepare_mcg_rwrs(struct ibv_recv_wr *wrs, struct ibv_sge *sges,
                              char *staging_rbuf, struct ibv_mr *staging_rbuf_mr,
                              size_t mtu, size_t qp_depth, uint64_t wr_id);
 ucc_status_t
+ucc_tl_spin_prepare_mcg_rwrs_zero_copy(struct ibv_recv_wr *wrs, struct ibv_sge *sges,
+                                       char *grh_buf, struct ibv_mr *grh_buf_mr,
+                                       char *buf, struct ibv_mr *buf_mr,
+                                       size_t mtu, size_t team_size, size_t pkts_to_send,
+                                       size_t src_buf_size, uint64_t wr_id);
+ucc_status_t
 ucc_tl_spin_team_prepost_mcast_qp(ucc_tl_spin_context_t *ctx,
                                   ucc_tl_spin_worker_info_t *worker,
                                   int qp_id);
+ucc_status_t
+ucc_tl_spin_team_prepost_mcast_qp_zero_copy(ucc_tl_spin_context_t *ctx,
+                                            ucc_tl_spin_worker_info_t *worker,
+                                            size_t team_size,
+                                            size_t pkts_to_send,
+                                            int qp_id);
+ucc_status_t
+ucc_tl_spin_team_prepost_mcast_qp_zero_copy(ucc_tl_spin_context_t *ctx,
+                                            ucc_tl_spin_worker_info_t *worker,
+                                            size_t team_size,
+                                            size_t pkts_to_send,
+                                            int qp_id);
+
 void
 ib_qp_ud_post_mcast_send(struct ibv_qp *qp, struct ibv_ah *ah, struct ibv_send_wr *wr,
                          struct ibv_mr *mr, void *buf, uint32_t len, 

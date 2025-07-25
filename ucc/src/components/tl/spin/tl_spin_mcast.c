@@ -266,6 +266,26 @@ ucc_tl_spin_team_prepost_mcast_qp(ucc_tl_spin_context_t *ctx,
     return UCC_OK;
 }
 
+ucc_status_t 
+ucc_tl_spin_team_prepost_mcast_qp_zero_copy(ucc_tl_spin_context_t *ctx,
+                                            ucc_tl_spin_worker_info_t *worker,
+                                            size_t team_size,
+                                            size_t pkts_to_send,
+                                            int qp_id)
+{
+    struct ibv_qp *qp = worker->qps[qp_id];
+    int            i  = 0, j;
+
+    for (int src_rank = 0; src_rank < team_size; src_rank++) {
+        for (j = 0; j < pkts_to_send; j++, i++) {
+            ib_qp_post_recv_wr(qp, &worker->rwrs[qp_id][i]);
+            tl_warn(UCC_TL_SPIN_CTX_LIB(ctx), "post recv wr %d, payload buf=%p", i, (void*)(worker->rwrs[qp_id][i].sg_list[1].addr));
+        }
+    }
+
+    return UCC_OK;
+}
+
 ucc_status_t
 ucc_tl_spin_prepare_mcg_rwrs(struct ibv_recv_wr *wrs, struct ibv_sge *sges,
                              char *grh_buf, struct ibv_mr *grh_buf_mr,
@@ -295,6 +315,49 @@ ucc_tl_spin_prepare_mcg_rwrs(struct ibv_recv_wr *wrs, struct ibv_sge *sges,
         wrs[i].wr_id   = wr_id;
     }
 
+    return UCC_OK;
+}
+
+ucc_status_t
+ucc_tl_spin_prepare_mcg_rwrs_zero_copy(struct ibv_recv_wr *wrs, struct ibv_sge *sges,
+                                       char *grh_buf, struct ibv_mr *grh_buf_mr,
+                                       char *buf, struct ibv_mr *buf_mr,
+                                       size_t mtu, size_t team_size, size_t pkts_to_send,
+                                       size_t src_buf_size, uint64_t wr_id)
+{
+    int i = 0, j = 0, k = 0;
+    size_t len;
+    size_t remaining_len;
+    
+    for (int src_rank = 0; src_rank < team_size; src_rank++) {
+        remaining_len = src_buf_size;
+        for (k = 0; k < pkts_to_send; k++, i++, j += 2) {
+            if (k == pkts_to_send - 1) {
+                assert(remaining_len <= mtu);
+                len = remaining_len;
+            } else {
+                len = mtu;
+            }
+
+            // GRH
+            sges[j].addr   = (uint64_t)grh_buf;
+            sges[j].lkey   = grh_buf_mr->lkey;
+            sges[j].length = 40;
+            grh_buf += UCC_TL_SPIN_IB_GRH_FOOTPRINT;
+
+            // Payload
+            sges[j + 1].addr   = (uint64_t)PTR_OFFSET(buf, src_buf_size * src_rank + mtu * k);
+            sges[j + 1].lkey   = buf_mr->lkey;
+            sges[j + 1].length = len;
+            remaining_len -= len;
+    
+            // WR
+            memset(&wrs[i], 0, sizeof(struct ibv_recv_wr));
+            wrs[i].sg_list = &sges[j];
+            wrs[i].num_sge = 2;
+            wrs[i].wr_id   = wr_id;
+        }
+    }
     return UCC_OK;
 }
 

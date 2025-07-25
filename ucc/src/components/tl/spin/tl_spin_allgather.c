@@ -39,7 +39,11 @@ static ucc_status_t ucc_tl_spin_allgather_start(ucc_coll_task_t *coll_task)
 
     errno = 0;
     reg_changed = 0;
-    if (UCC_OK != ucc_rcache_get(ctx->p2p.rcache,
+    ucc_rcache_t *rcache = ctx->p2p.rcache;
+    if (ctx->cfg.mcast_zero_copy_bcast_enable) {
+        rcache = ctx->mcast.rcache;
+    }
+    if (UCC_OK != ucc_rcache_get(rcache,
                                  task->dst_ptr,
                                  task->dst_buf_size,
                                  &reg_changed,
@@ -52,16 +56,6 @@ static ucc_status_t ucc_tl_spin_allgather_start(ucc_coll_task_t *coll_task)
     status = ucc_tl_spin_coll_activate_workers(task);
     if (status != UCC_OK) {
         return status;
-    }
-    if (!UCC_IS_INPLACE(task->super.bargs.args)) {
-        status = ucc_mc_memcpy(PTR_OFFSET(task->dst_ptr, task->src_buf_size * UCC_TL_TEAM_RANK(team)),
-                               task->src_ptr,
-                               task->src_buf_size,
-                               task->super.bargs.args.dst.info.mem_type, 
-                               task->super.bargs.args.dst.info.mem_type);
-        if (ucc_unlikely(UCC_OK != status)) {
-            return status;
-        }
     }
     coll_task->status = UCC_INPROGRESS;
     tl_debug(UCC_TASK_LIB(task), "start coll task ptr=%p tgid=%u", task, task->id);
@@ -117,10 +111,14 @@ ucc_status_t ucc_tl_spin_allgather_init(ucc_tl_spin_task_t   *task,
     if (task->last_pkt_size) {
         task->pkts_to_send++;
     }
-    task->pkts_to_recv     = task->pkts_to_send * (UCC_TL_TEAM_SIZE(team) - 1);
     task->start_chunk_id   = task->pkts_to_send * UCC_TL_TEAM_RANK(team);
     task->inplace_start_id = task->start_chunk_id;
     task->inplace_end_id   = task->inplace_start_id + task->pkts_to_send - 1;
+    if (ctx->cfg.mcast_zero_copy_bcast_enable) {
+        task->pkts_to_recv = task->pkts_to_send * UCC_TL_TEAM_SIZE(team);
+    } else {
+        task->pkts_to_recv = task->pkts_to_send * (UCC_TL_TEAM_SIZE(team) - 1);
+    }
 
     task->ag.mcast_seq_starter  = UCC_TL_TEAM_RANK(team)       % seq_length == 0 ? 1 : 0;
     task->ag.mcast_seq_finisher = (UCC_TL_TEAM_RANK(team) + 1) % seq_length == 0 ? 1 : 0;
@@ -144,6 +142,10 @@ ucc_status_t ucc_tl_spin_allgather_init(ucc_tl_spin_task_t   *task,
              task->src_ptr, task->src_buf_size, task->dst_ptr, task->dst_buf_size,
              task->pkts_to_send, task->pkts_to_recv);
 
+    if (ctx->cfg.mcast_zero_copy_bcast_enable) {
+        atomic_store(&task->rx_ready_compls,0);
+    }
+
     return UCC_OK;
 }
 
@@ -154,6 +156,13 @@ ucc_tl_spin_coll_worker_tx_allgather_start(ucc_tl_spin_worker_info_t *ctx, ucc_t
     int                 compls;
     struct ibv_wc       wc[1];
 
+    if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable && cur_task->ag.mcast_seq_starter) {
+        while (atomic_load(&cur_task->rx_ready_compls) < ctx->ctx->cfg.n_rx_workers) {
+            // busy wait
+        }
+        tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "tx handler %d received all rx handlers ready signal", UCC_TL_TEAM_RANK(ctx->team));
+    }
+ 
     if (!cur_task->ag.mcast_seq_starter) {
         compls = ib_cq_poll(ctx->reliability.cq, 1, wc);
         ucc_assert_always(compls == 1 && (wc->opcode == IBV_WC_RECV));
@@ -180,11 +189,41 @@ ucc_tl_spin_coll_worker_rx_allgather_start(ucc_tl_spin_worker_info_t *ctx, ucc_t
 {
     ucc_status_t status;
 
+    if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
+        ucc_assert_always(ctx->ctx->cfg.n_mcg == 1);
+        ucc_assert_always(ctx->ctx->cfg.n_tx_workers == 1 && ctx->ctx->cfg.n_rx_workers == 1);
+        ucc_assert_always(cur_task->pkts_to_send * UCC_TL_TEAM_SIZE(ctx->team) <= ctx->ctx->cfg.mcast_rq_depth);
+
+        int qp_id = 0;
+        status = ucc_tl_spin_prepare_mcg_rwrs_zero_copy(ctx->rwrs[0], ctx->rsges[0],
+                                                        ctx->grh_buf[0], ctx->grh_buf_mr[0],
+                                                        cur_task->dst_ptr, cur_task->cached_rbuf_mkey->mr,
+                                                        ctx->ctx->mcast.mtu, UCC_TL_TEAM_SIZE(ctx->team),
+                                                        cur_task->pkts_to_send, cur_task->src_buf_size, qp_id);
+        ucc_assert_always(status == UCC_OK);
+        status = ucc_tl_spin_team_prepost_mcast_qp_zero_copy(ctx->ctx, ctx,
+                                                             UCC_TL_TEAM_SIZE(ctx->team),
+                                                             cur_task->pkts_to_send,
+                                                             qp_id);
+        ucc_assert_always(status == UCC_OK);
+
+        // wait for all rx workers post recv wrs
+        ucc_tl_spin_team_t *team = UCC_TL_SPIN_TASK_TEAM(cur_task);
+        ucc_tl_spin_team_rc_ring_barrier(UCC_TL_TEAM_RANK(team), team->ctrl_ctx);
+
+        // if this process is starter, signal tx workers to start
+        if (cur_task->ag.mcast_seq_starter) {
+            atomic_fetch_add(&cur_task->rx_ready_compls, 1);
+        }
+    }
+ 
     status = ucc_tl_spin_coll_worker_rx_handler(ctx, cur_task);
     ucc_assert_always(status == UCC_OK);
 
-    status  = ucc_tl_spin_coll_worker_rx_reliability_handler(ctx, cur_task);
-    ucc_assert_always(status == UCC_OK);
+    if (!ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
+        status  = ucc_tl_spin_coll_worker_rx_reliability_handler(ctx, cur_task);
+        ucc_assert_always(status == UCC_OK);
+    }
 
     return UCC_OK;
 }

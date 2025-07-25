@@ -253,11 +253,13 @@ UCC_CLASS_INIT_FUNC(ucc_tl_spin_team_t, ucc_base_context_t *tl_context,
                     tl_error(tl_context->lib, "allocation of ssges buffer failed");
                     return UCC_ERR_NO_MEMORY;
                 }
-                status = ucc_tl_spin_prepare_mcg_rwrs(worker->rwrs[j], worker->rsges[j],
-                                                      worker->grh_buf[j], worker->grh_buf_mr[j],
-                                                      worker->staging_rbuf[j], worker->staging_rbuf_mr[j],
-                                                      ctx->mcast.mtu, ctx->cfg.mcast_rq_depth, j);
-                ucc_assert_always(status == UCC_OK);
+                if (ctx->cfg.mcast_zero_copy_bcast_enable) {
+                    status = ucc_tl_spin_prepare_mcg_rwrs(worker->rwrs[j], worker->rsges[j],
+                                                          worker->grh_buf[j], worker->grh_buf_mr[j],
+                                                          worker->staging_rbuf[j], worker->staging_rbuf_mr[j],
+                                                          ctx->mcast.mtu, ctx->cfg.mcast_rq_depth, j);
+                    ucc_assert_always(status == UCC_OK);
+                }
                 worker->tail_idx[j] = 0;
             }
 
@@ -600,8 +602,10 @@ static ucc_status_t ucc_tl_spin_team_init_mcast_qps(ucc_base_team_t *tl_team)
                 ucc_assert(worker->type == UCC_TL_SPIN_WORKER_TYPE_RX);
                 status = ucc_tl_spin_team_setup_mcast_qp(ctx, worker, &team->mcg_infos[mcg_id], 0, j);
                 ucc_assert(status == UCC_OK);
-                status = ucc_tl_spin_team_prepost_mcast_qp(ctx, worker, j);
-                ucc_assert(status == UCC_OK);
+                if (!ctx->cfg.mcast_zero_copy_bcast_enable) {
+                    status = ucc_tl_spin_team_prepost_mcast_qp(ctx, worker, j);
+                    ucc_assert(status == UCC_OK);
+                }
             }
             tl_debug(lib, "worker %d qp %d %p attached to cq %p", i, j, worker->qps[j], worker->cq);
             mcg_id = (mcg_id + 1) % ctx->cfg.n_mcg;

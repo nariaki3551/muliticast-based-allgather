@@ -85,6 +85,10 @@ static ucc_config_field_t ucc_tl_spin_context_config_table[] = {
      ucc_offsetof(ucc_tl_spin_context_config_t, max_recv_buf_size),
      UCC_CONFIG_TYPE_UINT},
 
+    {"MCAST_ZERO_COPY_BCAST_ENABLE", "0", "Enable zero-copy multicast bcast (0: disable, 1: enable)",
+     ucc_offsetof(ucc_tl_spin_context_config_t, mcast_zero_copy_bcast_enable),
+     UCC_CONFIG_TYPE_INT},
+
     {NULL}};
 
 UCC_CLASS_DEFINE_NEW_FUNC(ucc_tl_spin_context_t, ucc_base_context_t,

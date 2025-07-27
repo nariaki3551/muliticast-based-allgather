@@ -30,7 +30,11 @@ static ucc_status_t ucc_tl_spin_bcast_start(ucc_coll_task_t *coll_task)
 
     errno = 0;
     reg_changed = 0;
-    if (UCC_OK != ucc_rcache_get(ctx->p2p.rcache,
+    ucc_rcache_t *rcache = ctx->p2p.rcache;
+    if (ctx->cfg.mcast_zero_copy_bcast_enable) {
+        rcache = ctx->mcast.rcache;
+    }
+    if (UCC_OK != ucc_rcache_get(rcache,
                                  task->dst_ptr,
                                  task->dst_buf_size,
                                  &reg_changed,
@@ -126,6 +130,10 @@ ucc_status_t ucc_tl_spin_bcast_init(ucc_tl_spin_task_t   *task,
     tl_debug(UCC_TL_SPIN_TEAM_LIB(team), "got new task of size: %zu src_ptr: %p", 
              count * dt_size, task->src_ptr);
 
+    if (ctx->cfg.mcast_zero_copy_bcast_enable) {
+        atomic_store(&task->rx_ready_compls,0);
+    }
+
     return UCC_OK;
 }
 
@@ -133,6 +141,12 @@ inline ucc_status_t
 ucc_tl_spin_coll_worker_tx_bcast_start(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_task_t *cur_task)
 {
     if (ctx->team->subset.myrank == cur_task->super.bargs.args.root) {
+        if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
+            while (atomic_load(&cur_task->rx_ready_compls) < ctx->ctx->cfg.n_rx_workers) {
+                // busy wait
+            }
+            tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "tx handler %d received all rx handlers ready signal", UCC_TL_TEAM_RANK(ctx->team));
+        }
         return ucc_tl_spin_coll_worker_tx_handler(ctx, cur_task);
     }
     return UCC_OK;
@@ -142,6 +156,38 @@ inline ucc_status_t
 ucc_tl_spin_coll_worker_rx_bcast_start(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_task_t *cur_task)
 {
     ucc_status_t status;
+
+    if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
+        ucc_assert_always(ctx->ctx->cfg.n_mcg == 1);
+        ucc_assert_always(ctx->ctx->cfg.n_tx_workers == 1 && ctx->ctx->cfg.n_rx_workers == 1);
+        ucc_assert_always(cur_task->pkts_to_send * UCC_TL_TEAM_SIZE(ctx->team) <= ctx->ctx->cfg.mcast_rq_depth);
+
+        if (ctx->team->subset.myrank != cur_task->super.bargs.args.root) {
+            int qp_id = 0;
+            size_t send_team_size = 1;  // number of ranks to send is only one, root
+            status = ucc_tl_spin_prepare_mcg_rwrs_zero_copy(ctx->rwrs[0], ctx->rsges[0],
+                                                            ctx->grh_buf[0], ctx->grh_buf_mr[0],
+                                                            cur_task->dst_ptr, cur_task->cached_rbuf_mkey->mr,
+                                                            ctx->ctx->mcast.mtu, send_team_size,
+                                                            cur_task->pkts_to_send, cur_task->src_buf_size, qp_id);
+            ucc_assert_always(status == UCC_OK);
+            status = ucc_tl_spin_team_prepost_mcast_qp_zero_copy(ctx->ctx, ctx,
+                                                                 send_team_size,
+                                                                 cur_task->pkts_to_send,
+                                                                 qp_id);
+            ucc_assert_always(status == UCC_OK);
+        }
+
+        // wait for all rx workers post recv wrs
+        ucc_tl_spin_team_t *team = UCC_TL_SPIN_TASK_TEAM(cur_task);
+        ucc_tl_spin_team_rc_ring_barrier(UCC_TL_TEAM_RANK(team), team->ctrl_ctx);
+
+        // if this process is root, signal tx workers to start
+        if (ctx->team->subset.myrank == cur_task->super.bargs.args.root) {
+            atomic_fetch_add(&cur_task->rx_ready_compls, 1);
+        }
+    }
+
     if (ctx->team->subset.myrank != cur_task->super.bargs.args.root) {
         status = ucc_tl_spin_coll_worker_rx_handler(ctx, cur_task);
         ucc_assert_always(status == UCC_OK);

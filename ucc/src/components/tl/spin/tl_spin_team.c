@@ -253,7 +253,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_spin_team_t, ucc_base_context_t *tl_context,
                     tl_error(tl_context->lib, "allocation of ssges buffer failed");
                     return UCC_ERR_NO_MEMORY;
                 }
-                if (ctx->cfg.mcast_zero_copy_bcast_enable) {
+                if (!ctx->cfg.mcast_zero_copy_bcast_enable) {
                     status = ucc_tl_spin_prepare_mcg_rwrs(worker->rwrs[j], worker->rsges[j],
                                                           worker->grh_buf[j], worker->grh_buf_mr[j],
                                                           worker->staging_rbuf[j], worker->staging_rbuf_mr[j],

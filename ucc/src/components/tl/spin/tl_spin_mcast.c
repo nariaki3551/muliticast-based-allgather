@@ -279,7 +279,6 @@ ucc_tl_spin_team_prepost_mcast_qp_zero_copy(ucc_tl_spin_context_t *ctx,
     for (int src_rank = 0; src_rank < team_size; src_rank++) {
         for (j = 0; j < pkts_to_send; j++, i++) {
             ib_qp_post_recv_wr(qp, &worker->rwrs[qp_id][i]);
-            tl_warn(UCC_TL_SPIN_CTX_LIB(ctx), "post recv wr %d, payload buf=%p", i, (void*)(worker->rwrs[qp_id][i].sg_list[1].addr));
         }
     }
 

@@ -44,6 +44,7 @@ typedef struct ucc_tl_spin_context_config {
     int                     mcast_cq_depth;
     int                     mcast_sq_depth;
     int                     mcast_rq_depth;
+    int                     mcast_rx_wr_depth;
     int                     mcast_tx_batch_sz;
     int                     p2p_cq_depth;
     int                     p2p_qp_depth;
@@ -216,6 +217,13 @@ typedef struct ucc_tl_spin_worker_info {
     ucc_tl_spin_reliability_proto_t reliability;
     int                            *barrier_scratch;
     uint32_t                        n_mcg;
+
+    // for zero copy
+    struct {
+        size_t pkts_to_recv;
+        size_t next_wr_idx_to_post;
+    } zero_copy_mcast_state;
+
 } ucc_tl_spin_worker_info_t;
 
 ucc_status_t ucc_tl_spin_team_service_barrier_post(ucc_tl_spin_team_t *ctx, int *barrier_scratch,

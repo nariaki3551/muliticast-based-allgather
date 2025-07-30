@@ -53,6 +53,10 @@ static ucc_config_field_t ucc_tl_spin_context_config_table[] = {
      ucc_offsetof(ucc_tl_spin_context_config_t, mcast_rq_depth),
      UCC_CONFIG_TYPE_INT},
 
+    {"MCAST_RX_WR_DEPTH", "128", "Multicast RX Work Request depth",
+     ucc_offsetof(ucc_tl_spin_context_config_t, mcast_rx_wr_depth),
+     UCC_CONFIG_TYPE_INT},
+
     {"MCAST_TX_BATCH_SZ", "128", "Size of batch with MTU-sized multicast sends",
      ucc_offsetof(ucc_tl_spin_context_config_t, mcast_tx_batch_sz),
      UCC_CONFIG_TYPE_INT},

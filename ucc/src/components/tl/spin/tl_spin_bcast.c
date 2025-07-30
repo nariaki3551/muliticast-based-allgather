@@ -160,7 +160,9 @@ ucc_tl_spin_coll_worker_rx_bcast_start(ucc_tl_spin_worker_info_t *ctx, ucc_tl_sp
     if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
         ucc_assert_always(ctx->ctx->cfg.n_mcg == 1);
         ucc_assert_always(ctx->ctx->cfg.n_tx_workers == 1 && ctx->ctx->cfg.n_rx_workers == 1);
-        ucc_assert_always(cur_task->pkts_to_send * UCC_TL_TEAM_SIZE(ctx->team) <= ctx->ctx->cfg.mcast_rq_depth);
+        // ucc_assert_always(cur_task->pkts_to_send * UCC_TL_TEAM_SIZE(ctx->team) <= ctx->ctx->cfg.mcast_rq_depth);
+        ctx->zero_copy_mcast_state.pkts_to_recv = cur_task->pkts_to_recv;
+        ctx->zero_copy_mcast_state.next_wr_idx_to_post = 0;
 
         if (ctx->team->subset.myrank != cur_task->super.bargs.args.root) {
             int qp_id = 0;
@@ -650,7 +652,14 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
             ctx->reliability.to_recv--;
 
 repost_rwr:
-            if (!ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
+            if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
+                tl_warn(UCC_TL_SPIN_TEAM_LIB(ctx->team), "rx worker %u has posted %lu recv wrs, total %lu %lu", ctx->id, ctx->zero_copy_mcast_state.next_wr_idx_to_post, ctx->zero_copy_mcast_state.pkts_to_recv, cur_task->pkts_to_recv);
+                if (ctx->zero_copy_mcast_state.next_wr_idx_to_post < cur_task->pkts_to_recv) {
+                    ib_qp_post_recv_wr(ctx->qps[0], &ctx->rwrs[0][ctx->zero_copy_mcast_state.next_wr_idx_to_post]);
+                    ctx->zero_copy_mcast_state.next_wr_idx_to_post++;
+                    tl_warn(UCC_TL_SPIN_TEAM_LIB(ctx->team), "rx worker %u posted recv", ctx->id);
+                }
+            } else {
                 ib_qp_post_recv_wr(ctx->qps[0], &ctx->rwrs[0][*tail_idx]);
                 *tail_idx = (*tail_idx + 1) % ctx->ctx->cfg.mcast_rq_depth;
                 ucc_assert_always(mtu * (*tail_idx) <= ctx->staging_rbuf_len);

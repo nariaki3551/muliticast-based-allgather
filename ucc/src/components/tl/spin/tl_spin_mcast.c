@@ -275,10 +275,13 @@ ucc_tl_spin_team_prepost_mcast_qp_zero_copy(ucc_tl_spin_context_t *ctx,
 {
     struct ibv_qp *qp = worker->qps[qp_id];
     int            i  = 0, j;
+    worker->zero_copy_mcast_state.next_wr_idx_to_post = 0;
 
-    for (int src_rank = 0; src_rank < team_size; src_rank++) {
-        for (j = 0; j < pkts_to_send; j++, i++) {
-            ib_qp_post_recv_wr(qp, &worker->rwrs[qp_id][i]);
+    for (j = 0; j < pkts_to_send * team_size; j++, i++) {
+        ib_qp_post_recv_wr(qp, &worker->rwrs[qp_id][i]);
+        worker->zero_copy_mcast_state.next_wr_idx_to_post++;
+        if (worker->zero_copy_mcast_state.next_wr_idx_to_post == ctx->cfg.mcast_rq_depth) {
+            break;
         }
     }
 

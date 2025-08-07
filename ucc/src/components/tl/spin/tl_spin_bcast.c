@@ -30,9 +30,11 @@ static ucc_status_t ucc_tl_spin_bcast_start(ucc_coll_task_t *coll_task)
 
     errno = 0;
     reg_changed = 0;
-    ucc_rcache_t *rcache = ctx->p2p.rcache;
+    ucc_rcache_t *rcache = NULL;
     if (ctx->cfg.mcast_zero_copy_bcast_enable) {
         rcache = ctx->mcast.rcache;
+    } else {
+        rcache = ctx->p2p.rcache;
     }
     if (UCC_OK != ucc_rcache_get(rcache,
                                  task->dst_ptr,
@@ -623,6 +625,12 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
                      "rx worker %u got bcasted chunk of size: %zu, id: %u, tail_idx: %zu",
                      ctx->id, pkt_len, chunk_id, *tail_idx);
 
+            rank_id = chunk_id / cur_task->pkts_to_send;
+            ucc_assert_always(rank_id < UCC_TL_TEAM_SIZE(ctx->team));
+            if (cur_task->coll_type == UCC_TL_SPIN_WORKER_TASK_TYPE_BCAST) {
+                ucc_assert_always(rank_id == 0);
+            }
+
             // ignore loopback traffic in cast of allgather
             if (!ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
                 // ignore loopback traffic in cast of allgather
@@ -632,11 +640,6 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
                 }
 
                 // ready to copy
-                rank_id = chunk_id / cur_task->pkts_to_send;
-                ucc_assert_always(rank_id < UCC_TL_TEAM_SIZE(ctx->team));
-                if (cur_task->coll_type == UCC_TL_SPIN_WORKER_TASK_TYPE_BCAST) {
-                    ucc_assert_always(rank_id == 0);
-                }
                 rank_buf_offset = chunk_id % cur_task->pkts_to_send;
                 ucc_status_t status;
                 status = ucc_mc_memcpy(PTR_OFFSET(buf, cur_task->src_buf_size * rank_id + mtu * rank_buf_offset),
@@ -653,11 +656,9 @@ ucc_tl_spin_coll_worker_rx_handler(ucc_tl_spin_worker_info_t *ctx, ucc_tl_spin_t
 
 repost_rwr:
             if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
-                tl_warn(UCC_TL_SPIN_TEAM_LIB(ctx->team), "rx worker %u has posted %lu recv wrs, total %lu %lu", ctx->id, ctx->zero_copy_mcast_state.next_wr_idx_to_post, ctx->zero_copy_mcast_state.pkts_to_recv, cur_task->pkts_to_recv);
                 if (ctx->zero_copy_mcast_state.next_wr_idx_to_post < cur_task->pkts_to_recv) {
                     ib_qp_post_recv_wr(ctx->qps[0], &ctx->rwrs[0][ctx->zero_copy_mcast_state.next_wr_idx_to_post]);
                     ctx->zero_copy_mcast_state.next_wr_idx_to_post++;
-                    tl_warn(UCC_TL_SPIN_TEAM_LIB(ctx->team), "rx worker %u posted recv", ctx->id);
                 }
             } else {
                 ib_qp_post_recv_wr(ctx->qps[0], &ctx->rwrs[0][*tail_idx]);

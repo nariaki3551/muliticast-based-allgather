@@ -39,9 +39,11 @@ static ucc_status_t ucc_tl_spin_allgather_start(ucc_coll_task_t *coll_task)
 
     errno = 0;
     reg_changed = 0;
-    ucc_rcache_t *rcache = ctx->p2p.rcache;
+    ucc_rcache_t *rcache = NULL;
     if (ctx->cfg.mcast_zero_copy_bcast_enable) {
         rcache = ctx->mcast.rcache;
+    } else {
+        rcache = ctx->p2p.rcache;
     }
     if (UCC_OK != ucc_rcache_get(rcache,
                                  task->dst_ptr,
@@ -190,9 +192,25 @@ ucc_tl_spin_coll_worker_rx_allgather_start(ucc_tl_spin_worker_info_t *ctx, ucc_t
     ucc_status_t status;
 
     if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
-        ucc_assert_always(ctx->ctx->cfg.n_mcg == 1);
         ucc_assert_always(ctx->ctx->cfg.n_tx_workers == 1 && ctx->ctx->cfg.n_rx_workers == 1);
-        // ucc_assert_always(cur_task->pkts_to_send * UCC_TL_TEAM_SIZE(ctx->team) <= ctx->ctx->cfg.mcast_rq_depth);
+
+        // In zero-copy bcast, the dst_ptr is directly set in the receive work request buffer
+        // according to the data transmission order of the n_mcg=1 case.
+        // In the case of n_mcg>1, the data order received by the rx handler is not deterministic,
+        // which causes an inconsistency.
+        ucc_assert_always(ctx->ctx->cfg.n_mcg == 1);
+
+        // To reduce the time to post additional work requests during multicast data reception
+        // and prevent packet loss, all work requests are set in advance.
+        // Therefore, the number of work requests (mcast_rx_wr_depth) must be greater than
+        // the number of packets to be received.
+        if (cur_task->pkts_to_recv > ctx->ctx->cfg.mcast_rx_wr_depth) {
+            tl_error(UCC_TL_SPIN_TEAM_LIB(ctx->team),
+                     "UCC_TL_SPIN_MCAST_RX_WR_DEPTH (%d) is too small. Please set it greater than or equal to PKTS_TO_RECV (%lu) in the configuration",
+                     ctx->ctx->cfg.mcast_rx_wr_depth, cur_task->pkts_to_recv);
+            return UCC_ERR_NO_RESOURCE;
+        }
+
         ctx->zero_copy_mcast_state.pkts_to_recv = cur_task->pkts_to_recv;
         ctx->zero_copy_mcast_state.next_wr_idx_to_post = 0;
 
@@ -222,10 +240,28 @@ ucc_tl_spin_coll_worker_rx_allgather_start(ucc_tl_spin_worker_info_t *ctx, ucc_t
     status = ucc_tl_spin_coll_worker_rx_handler(ctx, cur_task);
     ucc_assert_always(status == UCC_OK);
 
-    if (!ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
-        status  = ucc_tl_spin_coll_worker_rx_reliability_handler(ctx, cur_task);
-        ucc_assert_always(status == UCC_OK);
+    if (ctx->ctx->cfg.mcast_zero_copy_bcast_enable) {
+        // Check if data for own rank has missing packets
+        int missing_pkts = cur_task->pkts_to_send - ctx->reliability.recvd_per_rank[UCC_TL_TEAM_RANK(ctx->team)];
+        if (missing_pkts > 0) {
+            // Complete missing data by copying from local source
+            status = ucc_mc_memcpy(PTR_OFFSET(cur_task->dst_ptr, cur_task->src_buf_size * UCC_TL_TEAM_RANK(ctx->team)),
+                                   cur_task->src_ptr,
+                                   cur_task->src_buf_size,
+                                   cur_task->super.bargs.args.dst.info.mem_type,
+                                   cur_task->super.bargs.args.src.info.mem_type);
+            ucc_assert_always(status == UCC_OK);
+        }
+
+        // Mark reception as complete
+        ctx->reliability.to_recv -= missing_pkts;
+        ctx->reliability.recvd_per_rank[UCC_TL_TEAM_RANK(ctx->team)] = cur_task->pkts_to_send;
+
+        tl_debug(UCC_TL_SPIN_TEAM_LIB(ctx->team), "ln[%zu]: Copied local data to complete missing packets", (size_t)UCC_TL_TEAM_RANK(ctx->team));
     }
+
+    status  = ucc_tl_spin_coll_worker_rx_reliability_handler(ctx, cur_task);
+    ucc_assert_always(status == UCC_OK);
 
     return UCC_OK;
 }

@@ -341,11 +341,7 @@ ucc_tl_spin_prepare_mcg_rwrs_zero_copy(struct ibv_recv_wr *wrs, struct ibv_sge *
                 len = mtu;
             }
 
-            // GRH
-            sges[j].addr   = (uint64_t)grh_buf;
-            sges[j].lkey   = grh_buf_mr->lkey;
-            sges[j].length = 40;
-            grh_buf += UCC_TL_SPIN_IB_GRH_FOOTPRINT;
+            // GRH is already set in ucc_tl_spin_prepare_grh_rwrs_zero_copy
 
             // Payload
             sges[j + 1].addr   = (uint64_t)PTR_OFFSET(buf, src_buf_size * src_rank + mtu * k);
@@ -360,6 +356,23 @@ ucc_tl_spin_prepare_mcg_rwrs_zero_copy(struct ibv_recv_wr *wrs, struct ibv_sge *
             wrs[i].wr_id   = wr_id;
         }
     }
+    return UCC_OK;
+}
+
+ucc_status_t
+ucc_tl_spin_prepare_grhs(struct ibv_sge *sges, char *grh_buf, struct ibv_mr *grh_buf_mr, size_t qp_depth)
+{
+    int i, j;
+
+    memset(&sges[0], 0, 2 * qp_depth * sizeof(struct ibv_sge));
+    for (i = 0, j = 0; i < qp_depth; i++, j += 2) {
+        // GRH
+        sges[j].addr   = (uint64_t)grh_buf;
+        sges[j].lkey   = grh_buf_mr->lkey;
+        sges[j].length = 40;
+        grh_buf += UCC_TL_SPIN_IB_GRH_FOOTPRINT;
+    }
+
     return UCC_OK;
 }
 

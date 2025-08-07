@@ -32,6 +32,8 @@ ucc_tl_spin_prepare_mcg_rwrs_zero_copy(struct ibv_recv_wr *wrs, struct ibv_sge *
                                        size_t mtu, size_t team_size, size_t pkts_to_send,
                                        size_t src_buf_size, uint64_t wr_id);
 ucc_status_t
+ucc_tl_spin_prepare_grhs(struct ibv_sge *sges, char *grh_buf, struct ibv_mr *grh_buf_mr, size_t qp_depth);
+ucc_status_t
 ucc_tl_spin_team_prepost_mcast_qp(ucc_tl_spin_context_t *ctx,
                                   ucc_tl_spin_worker_info_t *worker,
                                   int qp_id);

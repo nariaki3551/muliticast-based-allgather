@@ -323,6 +323,14 @@ UCC_CLASS_INIT_FUNC(ucc_tl_spin_context_t,
                               params->context);
     memcpy(&self->cfg, tl_spin_config, sizeof(*tl_spin_config));
     
+    /* Validate configuration parameters */
+    if (self->cfg.mcast_rx_wr_depth < self->cfg.mcast_rq_depth) {
+        tl_error(self->super.super.lib, 
+                "MCAST_RX_WR_DEPTH (%d) must be greater than or equal to MCAST_RQ_DEPTH (%d)",
+                self->cfg.mcast_rx_wr_depth, self->cfg.mcast_rq_depth);
+        return UCC_ERR_INVALID_PARAM;
+    }
+    
     ucc_assert_always(self->cfg.n_tx_workers == 1);
     self->cur_core_id = self->cfg.start_core_id;
 
@@ -345,6 +353,17 @@ UCC_CLASS_INIT_FUNC(ucc_tl_spin_context_t,
     if (status != UCC_OK) {
         tl_error(self->super.super.lib, "failed to initialize mcast context");
         goto err_mcast;
+    }
+
+    if (self->cfg.mcast_zero_copy_bcast_enable) {
+        // Use mcast protection domain for p2p
+        // note: When using zero-copy bcast, dst_ptr is registered to mcast pd
+        //       Double memory registration of dst_ptr to p2p pd for reliability
+        //       consumes NIC resources and requires registration time.
+        //       Therefore, we set mcast pd for reliability instead of p2p pd.
+        self->p2p.dev     = self->mcast.dev;
+        self->p2p.pd      = self->mcast.pd;
+        self->p2p.rcache  = self->mcast.rcache;
     }
 
     tl_info(self->super.super.lib, "initialized tl context: %p", self);

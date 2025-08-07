@@ -53,7 +53,7 @@ static ucc_config_field_t ucc_tl_spin_context_config_table[] = {
      ucc_offsetof(ucc_tl_spin_context_config_t, mcast_rq_depth),
      UCC_CONFIG_TYPE_INT},
 
-    {"MCAST_RX_WR_DEPTH", "128", "Multicast RX Work Request depth",
+    {"MCAST_RX_WR_DEPTH", "128", "Multicast RX Work Request depth (must be greater than MCAST_RQ_DEPTH)",
      ucc_offsetof(ucc_tl_spin_context_config_t, mcast_rx_wr_depth),
      UCC_CONFIG_TYPE_INT},
 

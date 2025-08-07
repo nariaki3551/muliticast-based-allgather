@@ -215,14 +215,11 @@ UCC_CLASS_INIT_FUNC(ucc_tl_spin_team_t, ucc_base_context_t *tl_context,
             UCC_TL_SPIN_CHK_PTR(tl_context->lib,
                                 ucc_calloc(worker->n_mcg, sizeof(struct ibv_sge *)),
                                 worker->rsges, status, UCC_ERR_NO_MEMORY, ret);
-            
-            int rx_wr_len = ctx->cfg.mcast_rx_wr_depth;
-            if (rx_wr_len < ctx->cfg.mcast_rq_depth) {
-                rx_wr_len = ctx->cfg.mcast_rq_depth;
-            }
-            worker->staging_rbuf_len = ctx->mcast.mtu * rx_wr_len;
-            worker->grh_buf_len      = UCC_TL_SPIN_IB_GRH_FOOTPRINT * rx_wr_len;
-            tl_warn(tl_context->lib, "work request depth for RX: %d", rx_wr_len);
+                
+            /* MCAST_RX_WR_DEPTH should be greater than MCAST_RQ_DEPTH */
+            ucc_assert_always(ctx->cfg.mcast_rx_wr_depth >= ctx->cfg.mcast_rq_depth);
+            worker->staging_rbuf_len = ctx->mcast.mtu * ctx->cfg.mcast_rx_wr_depth;
+            worker->grh_buf_len      = UCC_TL_SPIN_IB_GRH_FOOTPRINT * ctx->cfg.mcast_rx_wr_depth;
             for (j = 0; j < worker->n_mcg; j++) {
                 if (posix_memalign((void **)&worker->staging_rbuf[j], alignment, worker->staging_rbuf_len)) {
                     tl_error(tl_context->lib, "allocation of staging buffer failed");
@@ -250,19 +247,22 @@ UCC_CLASS_INIT_FUNC(ucc_tl_spin_team_t, ucc_base_context_t *tl_context,
                     return UCC_ERR_NO_MEMORY;
                 }
                 
-                if (posix_memalign((void **)&worker->rwrs[j], alignment, rx_wr_len * sizeof(struct ibv_recv_wr))) {
+                if (posix_memalign((void **)&worker->rwrs[j], alignment, ctx->cfg.mcast_rx_wr_depth * sizeof(struct ibv_recv_wr))) {
                     tl_error(tl_context->lib, "allocation of swrs buffer failed");
                     return UCC_ERR_NO_MEMORY;
                 }
-                if (posix_memalign((void **)&worker->rsges[j], alignment, rx_wr_len * 2 * sizeof(struct ibv_sge))) {
+                if (posix_memalign((void **)&worker->rsges[j], alignment, ctx->cfg.mcast_rx_wr_depth * 2 * sizeof(struct ibv_sge))) {
                     tl_error(tl_context->lib, "allocation of ssges buffer failed");
                     return UCC_ERR_NO_MEMORY;
                 }
-                if (!ctx->cfg.mcast_zero_copy_bcast_enable) {
+                if (ctx->cfg.mcast_zero_copy_bcast_enable) {
+                    status = ucc_tl_spin_prepare_grhs(worker->rsges[j], worker->grh_buf[j], worker->grh_buf_mr[j], ctx->cfg.mcast_rx_wr_depth);
+                    ucc_assert_always(status == UCC_OK);
+                } else {
                     status = ucc_tl_spin_prepare_mcg_rwrs(worker->rwrs[j], worker->rsges[j],
                                                           worker->grh_buf[j], worker->grh_buf_mr[j],
                                                           worker->staging_rbuf[j], worker->staging_rbuf_mr[j],
-                                                          ctx->mcast.mtu, rx_wr_len, j);
+                                                          ctx->mcast.mtu, ctx->cfg.mcast_rx_wr_depth, j);
                     ucc_assert_always(status == UCC_OK);
                 }
                 worker->tail_idx[j] = 0;
